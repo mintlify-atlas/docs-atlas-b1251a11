@@ -1,0 +1,694 @@
+---
+title: 'UI Primitives'
+description: 'Low-level React components for building custom support interfaces'
+---
+
+Primitives are low-level, unstyled UI components that provide the building blocks for custom support interfaces. They handle state management, accessibility, and keyboard navigation while giving you complete control over styling and layout.
+
+## Importing Primitives
+
+All primitives are exported under the `Primitives` namespace:
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+const { Button, Avatar, ConversationTimeline } = Primitives;
+```
+
+---
+
+## Layout Components
+
+### Window
+
+Container for the support widget window with positioning and animation.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function CustomSupport() {
+  return (
+    <Primitives.Window
+      side="top"
+      align="end"
+      sideOffset={16}
+      className="support-window"
+    >
+      <div>Your custom content</div>
+    </Primitives.Window>
+  );
+}
+```
+
+#### Props
+
+<ParamField path="side" type="'top' | 'bottom' | 'left' | 'right'" default="top">
+  Which side of the trigger to place the window
+</ParamField>
+
+<ParamField path="align" type="'start' | 'center' | 'end'" default="end">
+  Alignment along the side axis
+</ParamField>
+
+<ParamField path="sideOffset" type="number" default="16">
+  Distance from the trigger in pixels
+</ParamField>
+
+<ParamField path="avoidCollisions" type="boolean" default="true">
+  Enable automatic collision detection
+</ParamField>
+
+<ParamField path="collisionPadding" type="number | object" default="8">
+  Padding from viewport edges
+</ParamField>
+
+---
+
+### Router
+
+Client-side router for navigating between pages within the widget.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+const pages = [
+  { name: "HOME", component: HomePage },
+  { name: "CONVERSATION", component: ConversationPage },
+  { name: "SETTINGS", component: SettingsPage },
+];
+
+function CustomWidget() {
+  return (
+    <Primitives.Router pages={pages} />
+  );
+}
+```
+
+#### Props
+
+<ParamField path="pages" type="PageDefinition[]" required>
+  Array of page definitions with name and component
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode">
+  Child components (alternative to pages prop)
+</ParamField>
+
+---
+
+## Timeline Components
+
+### ConversationTimeline
+
+Render a conversation timeline with messages grouped by sender.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+import { useConversation } from "@cossistant/react";
+
+function ConversationView({ conversationId }) {
+  const { conversation } = useConversation(conversationId);
+  
+  return (
+    <Primitives.ConversationTimeline
+      conversationId={conversationId}
+      items={conversation?.timelineItems || []}
+    />
+  );
+}
+```
+
+#### ConversationTimelineContainer
+
+Scrollable container for timeline items.
+
+```tsx
+<Primitives.ConversationTimelineContainer className="timeline">
+  {/* Timeline items */}
+</Primitives.ConversationTimelineContainer>
+```
+
+#### ConversationTimelineEmpty
+
+Empty state placeholder.
+
+```tsx
+<Primitives.ConversationTimelineEmpty>
+  <p>No messages yet. Start a conversation!</p>
+</Primitives.ConversationTimelineEmpty>
+```
+
+#### ConversationTimelineLoading
+
+Loading state skeleton.
+
+```tsx
+<Primitives.ConversationTimelineLoading />
+```
+
+---
+
+### TimelineItem
+
+Render individual timeline messages or events.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function MessageItem({ item }) {
+  return (
+    <Primitives.TimelineItem
+      id={item.id}
+      timestamp={item.createdAt}
+      senderType={item.senderType}
+    >
+      <Primitives.TimelineItemContent content={item.text} />
+      <Primitives.TimelineItemTimestamp timestamp={item.createdAt} />
+    </Primitives.TimelineItem>
+  );
+}
+```
+
+#### TimelineItemContent
+
+Render message content with markdown support.
+
+<ParamField path="content" type="string" required>
+  Markdown-formatted message text
+</ParamField>
+
+<ParamField path="renderers" type="TimelineItemContentMarkdownRenderers">
+  Custom markdown component renderers
+</ParamField>
+
+#### TimelineItemTimestamp
+
+Formatted timestamp display.
+
+<ParamField path="timestamp" type="string" required>
+  ISO 8601 timestamp string
+</ParamField>
+
+---
+
+### TimelineItemGroup
+
+Group consecutive messages from the same sender.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function MessageGroup({ messages }) {
+  return (
+    <Primitives.TimelineItemGroup>
+      <Primitives.TimelineItemGroupAvatar
+        name={messages[0].senderName}
+        image={messages[0].senderImage}
+      />
+      <Primitives.TimelineItemGroupContent>
+        <Primitives.TimelineItemGroupHeader>
+          <span>{messages[0].senderName}</span>
+        </Primitives.TimelineItemGroupHeader>
+        
+        {messages.map((msg) => (
+          <Primitives.TimelineItem key={msg.id} {...msg} />
+        ))}
+      </Primitives.TimelineItemGroupContent>
+    </Primitives.TimelineItemGroup>
+  );
+}
+```
+
+#### TimelineItemGroupReadIndicator
+
+Show read status indicator.
+
+```tsx
+<Primitives.TimelineItemGroupReadIndicator isRead={true} />
+```
+
+#### TimelineItemGroupSeenIndicator
+
+Show "seen by" avatars.
+
+```tsx
+<Primitives.TimelineItemGroupSeenIndicator
+  seenBy={[{ name: "Agent", image: "..." }]}
+/>
+```
+
+---
+
+### TimelineItemAttachments
+
+Render file and image attachments.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function MessageWithFiles({ item }) {
+  const images = Primitives.extractImageParts(item.parts);
+  const files = Primitives.extractFileParts(item.parts);
+  
+  return (
+    <div>
+      <Primitives.TimelineItemContent content={item.text} />
+      
+      {images.length > 0 && (
+        <Primitives.TimelineItemImages images={images} />
+      )}
+      
+      {files.length > 0 && (
+        <Primitives.TimelineItemFiles files={files} />
+      )}
+    </div>
+  );
+}
+```
+
+#### Helper Functions
+
+<ParamField path="extractImageParts" type="(parts: TimelineItemParts) => TimelinePartImage[]">
+  Extract image parts from timeline item
+</ParamField>
+
+<ParamField path="extractFileParts" type="(parts: TimelineItemParts) => TimelinePartFile[]">
+  Extract file parts from timeline item
+</ParamField>
+
+<ParamField path="hasAttachments" type="(parts: TimelineItemParts) => boolean">
+  Check if timeline item has attachments
+</ParamField>
+
+---
+
+### TimelineCodeBlock
+
+Syntax-highlighted code blocks.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function CodeMessage() {
+  return (
+    <Primitives.TimelineCodeBlock
+      code="const hello = 'world';"
+      language="javascript"
+      showLineNumbers={true}
+    />
+  );
+}
+```
+
+#### Props
+
+<ParamField path="code" type="string" required>
+  Code content to display
+</ParamField>
+
+<ParamField path="language" type="string">
+  Programming language for syntax highlighting
+</ParamField>
+
+<ParamField path="showLineNumbers" type="boolean" default="false">
+  Show line numbers in gutter
+</ParamField>
+
+---
+
+### TimelineCommandBlock
+
+Terminal command with package manager variants.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function InstallInstructions() {
+  return (
+    <Primitives.TimelineCommandBlock
+      command="install @cossistant/react"
+      variants={{
+        npm: "npm install @cossistant/react",
+        yarn: "yarn add @cossistant/react",
+        bun: "bun add @cossistant/react",
+      }}
+    />
+  );
+}
+```
+
+#### Props
+
+<ParamField path="command" type="string" required>
+  Base command text
+</ParamField>
+
+<ParamField path="variants" type="CommandVariants">
+  Package manager specific variants
+</ParamField>
+
+---
+
+### DaySeparator
+
+Date separator between message groups.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function Timeline({ messages }) {
+  return (
+    <div>
+      <Primitives.DaySeparator date={new Date("2024-01-15")}>
+        {({ formattedDate }) => (
+          <>
+            <Primitives.DaySeparatorLine />
+            <Primitives.DaySeparatorLabel>
+              {formattedDate}
+            </Primitives.DaySeparatorLabel>
+            <Primitives.DaySeparatorLine />
+          </>
+        )}
+      </Primitives.DaySeparator>
+      
+      {/* Messages */}
+    </div>
+  );
+}
+```
+
+#### Props
+
+<ParamField path="date" type="Date" required>
+  Date to display
+</ParamField>
+
+<ParamField path="formatDate" type="(date: Date) => string">
+  Custom date formatter function
+</ParamField>
+
+<ParamField path="children" type="(props: DaySeparatorRenderProps) => React.ReactNode">
+  Render prop receiving formatted date
+</ParamField>
+
+---
+
+## Input Components
+
+### MultimodalInput
+
+Message input with text, file upload, and emoji support.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function MessageComposer() {
+  const [message, setMessage] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  
+  return (
+    <Primitives.MultimodalInput
+      value={message}
+      onChange={setMessage}
+      onFilesChange={setFiles}
+      placeholder="Type a message..."
+      onSubmit={() => {
+        // Send message
+      }}
+    />
+  );
+}
+```
+
+#### Input (alias)
+
+Simplified text-only input:
+
+```tsx
+<Primitives.Input
+  value={message}
+  onChange={setMessage}
+  placeholder="Type a message..."
+/>
+```
+
+#### FileInput
+
+File upload input:
+
+```tsx
+<Primitives.FileInput
+  onChange={(files) => setFiles(files)}
+  accept="image/*,.pdf,.doc,.docx"
+  multiple
+/>
+```
+
+---
+
+## Feedback Components
+
+### FeedbackRatingSelector
+
+Star rating selector.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function RatingForm() {
+  const [rating, setRating] = useState(0);
+  
+  return (
+    <Primitives.FeedbackRatingSelector
+      value={rating}
+      onChange={setRating}
+      size="large"
+      maxRating={5}
+    />
+  );
+}
+```
+
+#### Props
+
+<ParamField path="value" type="number" required>
+  Current rating (0-5)
+</ParamField>
+
+<ParamField path="onChange" type="(rating: number) => void" required>
+  Rating change handler
+</ParamField>
+
+<ParamField path="size" type="'small' | 'medium' | 'large'" default="medium">
+  Star size
+</ParamField>
+
+<ParamField path="maxRating" type="number" default="5">
+  Maximum rating value
+</ParamField>
+
+---
+
+### FeedbackTopicSelect
+
+Dropdown for feedback topics.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function FeedbackForm() {
+  const [topic, setTopic] = useState("");
+  
+  return (
+    <Primitives.FeedbackTopicSelect
+      value={topic}
+      onChange={setTopic}
+      topics={["Bug Report", "Feature Request", "General Feedback"]}
+      placeholder="Select a topic..."
+    />
+  );
+}
+```
+
+---
+
+### FeedbackCommentInput
+
+Multi-line comment input.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function FeedbackForm() {
+  const [comment, setComment] = useState("");
+  
+  return (
+    <Primitives.FeedbackCommentInput
+      value={comment}
+      onChange={setComment}
+      placeholder="Share your thoughts..."
+      required={false}
+      maxLength={1000}
+    />
+  );
+}
+```
+
+---
+
+## UI Elements
+
+### Button
+
+Accessible button component.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function Actions() {
+  return (
+    <Primitives.Button
+      variant="primary"
+      size="medium"
+      onClick={() => console.log("clicked")}
+    >
+      Submit
+    </Primitives.Button>
+  );
+}
+```
+
+---
+
+### Avatar
+
+User avatar with fallback.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function UserAvatar({ user }) {
+  return (
+    <Primitives.Avatar>
+      <Primitives.AvatarImage src={user.image} alt={user.name} />
+      <Primitives.AvatarFallback>{user.name[0]}</Primitives.AvatarFallback>
+    </Primitives.Avatar>
+  );
+}
+```
+
+---
+
+### TypingIndicator
+
+Animated typing indicator.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function ConversationView({ typingParticipants }) {
+  return (
+    <div>
+      {typingParticipants.length > 0 && (
+        <Primitives.TypingIndicator participants={typingParticipants} />
+      )}
+    </div>
+  );
+}
+```
+
+#### Props
+
+<ParamField path="participants" type="TypingParticipant[]" required>
+  Array of participants currently typing
+</ParamField>
+
+---
+
+### ToolActivityRow
+
+Display AI tool/function call activity.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+function ToolActivity() {
+  return (
+    <Primitives.ToolActivityRow
+      toolName="search_knowledge_base"
+      state="running"
+      tone="neutral"
+      message="Searching for relevant articles..."
+    />
+  );
+}
+```
+
+#### Props
+
+<ParamField path="toolName" type="string" required>
+  Name of the tool being executed
+</ParamField>
+
+<ParamField path="state" type="'pending' | 'running' | 'complete' | 'error'" required>
+  Current state of the tool execution
+</ParamField>
+
+<ParamField path="tone" type="'neutral' | 'success' | 'error'" default="neutral">
+  Visual tone indicator
+</ParamField>
+
+<ParamField path="message" type="string">
+  Status message to display
+</ParamField>
+
+---
+
+## Configuration
+
+### Config (SupportConfig)
+
+Update support configuration dynamically.
+
+```tsx
+import { Primitives } from "@cossistant/react";
+import { SenderType } from "@cossistant/types";
+
+function ProductPage() {
+  return (
+    <>
+      <Primitives.Config
+        quickOptions={["Product question", "Pricing", "Demo request"]}
+        defaultMessages={[
+          {
+            content: "Interested in this product? Let us help!",
+            senderType: SenderType.TeamMember,
+          },
+        ]}
+      />
+      
+      {/* Page content */}
+    </>
+  );
+}
+```
+
+---
+
+## Best Practices
+
+<Card title="Styling" icon="palette">
+  Primitives are unstyled by default. Add your own CSS classes or use Tailwind/CSS-in-JS for styling.
+</Card>
+
+<Card title="Composition" icon="layer-group">
+  Combine primitives to build custom interfaces. Start with higher-level components and reach for primitives when you need more control.
+</Card>
+
+<Card title="Accessibility" icon="universal-access">
+  Primitives handle keyboard navigation and ARIA attributes automatically. Don't override these unless necessary.
+</Card>
+
+<Card title="Performance" icon="bolt">
+  Primitives use React.memo and other optimizations. Avoid wrapping them in additional memo() calls.
+</Card>

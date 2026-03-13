@@ -1,0 +1,473 @@
+---
+title: 'WebSocket Events'
+description: 'Complete reference of real-time WebSocket events'
+---
+
+# WebSocket Events
+
+This page documents all events that can be received over WebSocket connections.
+
+## Event Categories
+
+<CardGroup cols={2}>
+  <Card title="Connection Events" icon="link">
+    User and visitor connection lifecycle
+  </Card>
+  
+  <Card title="Conversation Events" icon="messages">
+    Conversation creation and updates
+  </Card>
+  
+  <Card title="Message Events" icon="paper-plane">
+    Timeline items (messages and events)
+  </Card>
+  
+  <Card title="AI Agent Events" icon="robot">
+    AI processing and responses
+  </Card>
+</CardGroup>
+
+## Connection Events
+
+### userConnected
+
+Emitted when a dashboard user connects via WebSocket.
+
+**Audience**: Dashboard users only (not sent to visitors)
+
+```json
+{
+  "type": "userConnected",
+  "payload": {
+    "userId": "01JG000000000000000000003",
+    "connectionId": "conn_1234567890_abc",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": null
+  }
+}
+```
+
+### userDisconnected
+
+Emitted when a dashboard user disconnects.
+
+**Audience**: Dashboard users only
+
+```json
+{
+  "type": "userDisconnected",
+  "payload": {
+    "userId": "01JG000000000000000000003",
+    "connectionId": "conn_1234567890_abc",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": null
+  }
+}
+```
+
+### visitorConnected
+
+Emitted when a visitor connects via WebSocket.
+
+**Audience**: Dashboard users only
+
+```json
+{
+  "type": "visitorConnected",
+  "payload": {
+    "visitorId": "01JG000000000000000000000",
+    "connectionId": "conn_1234567890_xyz",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "userId": null
+  }
+}
+```
+
+### visitorDisconnected
+
+Emitted when a visitor disconnects.
+
+**Audience**: Dashboard users only
+
+```json
+{
+  "type": "visitorDisconnected",
+  "payload": {
+    "visitorId": "01JG000000000000000000000",
+    "connectionId": "conn_1234567890_xyz",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "userId": null
+  }
+}
+```
+
+### userPresenceUpdate
+
+Emitted when a user's presence/last seen time is updated.
+
+**Audience**: Dashboard users only
+
+```json
+{
+  "type": "userPresenceUpdate",
+  "payload": {
+    "userId": "01JG000000000000000000003",
+    "websiteId": "01JG000000000000000000001",
+    "lastSeenAt": "2024-03-13T10:30:00.000Z"
+  }
+}
+```
+
+## Conversation Events
+
+### conversationCreated
+
+Emitted when a new conversation is created.
+
+**Audience**: Dashboard users and the conversation owner visitor
+
+```json
+{
+  "type": "conversationCreated",
+  "payload": {
+    "conversation": {
+      "id": "01JG123456789ABCDEFGHIJK",
+      "status": "open",
+      "visitorId": "01JG000000000000000000000",
+      "websiteId": "01JG000000000000000000001",
+      "title": null,
+      "createdAt": "2024-03-13T10:00:00.000Z"
+    },
+    "header": {
+      // Additional metadata for dashboard
+    },
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000"
+  }
+}
+```
+
+### conversationUpdated
+
+Emitted when conversation metadata changes (title, status, escalation, sentiment).
+
+**Audience**: Dashboard users and visitor
+
+```json
+{
+  "type": "conversationUpdated",
+  "payload": {
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000",
+    "updates": {
+      "title": "Password Reset Help",
+      "status": "resolved"
+    }
+  }
+}
+```
+
+<Note>
+Updates to `aiPausedUntil` are only sent to dashboard users, not visitors.
+</Note>
+
+### conversationSeen
+
+Emitted when someone marks a conversation as seen (read receipt).
+
+**Audience**: Dashboard users and visitor
+
+```json
+{
+  "type": "conversationSeen",
+  "payload": {
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000",
+    "userId": null,
+    "actorType": "visitor",
+    "actorId": "01JG000000000000000000000",
+    "lastSeenAt": "2024-03-13T10:30:00.000Z"
+  }
+}
+```
+
+**Actor types**: `user`, `visitor`, `ai_agent`
+
+### conversationTyping
+
+Emitted when someone is typing in a conversation.
+
+**Audience**: Dashboard users and visitor
+
+```json
+{
+  "type": "conversationTyping",
+  "payload": {
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000",
+    "userId": null,
+    "aiAgentId": null,
+    "isTyping": true,
+    "visitorPreview": "I need help with..."
+  }
+}
+```
+
+## Message Events
+
+### timelineItemCreated
+
+Emitted when a new message or event is added to a conversation.
+
+**Audience**: Dashboard users and visitor (respects visibility)
+
+```json
+{
+  "type": "timelineItemCreated",
+  "payload": {
+    "item": {
+      "id": "01JG234567890ABCDEFGHIJK",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "organizationId": "01JG000000000000000000002",
+      "type": "message",
+      "text": "Hello! I have a question.",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Hello! I have a question."
+        }
+      ],
+      "visibility": "public",
+      "userId": null,
+      "aiAgentId": null,
+      "visitorId": "01JG000000000000000000000",
+      "createdAt": "2024-03-13T10:05:00.000Z",
+      "deletedAt": null
+    },
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000"
+  }
+}
+```
+
+<Note>
+Messages with `visibility: "private"` are only sent to dashboard users.
+</Note>
+
+### timelineItemUpdated
+
+Emitted when a timeline item is edited or modified.
+
+**Audience**: Dashboard users and visitor (respects visibility)
+
+```json
+{
+  "type": "timelineItemUpdated",
+  "payload": {
+    "item": {
+      "id": "01JG234567890ABCDEFGHIJK",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "text": "Updated message text",
+      "updatedAt": "2024-03-13T10:06:00.000Z"
+    },
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000"
+  }
+}
+```
+
+### timelineItemPartUpdated
+
+Emitted during streaming AI responses when a message part is updated.
+
+**Audience**: Based on `audience` field
+
+```json
+{
+  "type": "timelineItemPartUpdated",
+  "payload": {
+    "timelineItemId": "01JG234567890ABCDEFGHIJK",
+    "partIndex": 0,
+    "partType": "text",
+    "content": "Partial AI response...",
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000",
+    "audience": "all"
+  }
+}
+```
+
+## AI Agent Events
+
+All AI agent events include an `audience` field:
+- `"all"`: Sent to both dashboard and visitor
+- `"dashboard"`: Only sent to dashboard users
+
+### aiAgentProcessingStarted
+
+Emitted when an AI agent starts processing a conversation.
+
+```json
+{
+  "type": "aiAgentProcessingStarted",
+  "payload": {
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000",
+    "aiAgentId": "01JG000000000000000000004",
+    "audience": "all"
+  }
+}
+```
+
+### aiAgentDecisionMade
+
+Emitted when the AI agent decides whether to respond.
+
+```json
+{
+  "type": "aiAgentDecisionMade",
+  "payload": {
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000",
+    "aiAgentId": "01JG000000000000000000004",
+    "shouldAct": true,
+    "reason": "Customer has a question within scope",
+    "audience": "all"
+  }
+}
+```
+
+When `shouldAct: true`, `audience` is `"all"` (visitor sees typing indicator).
+When `shouldAct: false`, `audience` is `"dashboard"` (visitor doesn't know).
+
+### aiAgentProcessingProgress
+
+Emitted during AI response generation.
+
+```json
+{
+  "type": "aiAgentProcessingProgress",
+  "payload": {
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000",
+    "aiAgentId": "01JG000000000000000000004",
+    "progress": 0.5,
+    "stage": "generating",
+    "audience": "dashboard"
+  }
+}
+```
+
+### aiAgentProcessingCompleted
+
+Emitted when AI agent finishes processing.
+
+```json
+{
+  "type": "aiAgentProcessingCompleted",
+  "payload": {
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "visitorId": "01JG000000000000000000000",
+    "aiAgentId": "01JG000000000000000000004",
+    "success": true,
+    "audience": "all"
+  }
+}
+```
+
+## Client-Initiated Events
+
+Clients can send these events to the server:
+
+### Send Typing Indicator
+
+```javascript
+ws.send(JSON.stringify({
+  type: 'conversationTyping',
+  payload: {
+    conversationId: '01JG123456789ABCDEFGHIJK',
+    isTyping: true,
+    visitorPreview: 'Typing...'
+  }
+}));
+```
+
+**Authorization**:
+- Visitors can only send for conversations they own
+- Users can send for any conversation on their website
+
+### Send Seen Receipt
+
+```javascript
+ws.send(JSON.stringify({
+  type: 'conversationSeen',
+  payload: {
+    conversationId: '01JG123456789ABCDEFGHIJK'
+  }
+}));
+```
+
+**Authorization**: Same as typing events
+
+## Event Routing
+
+Events are routed based on:
+
+1. **Website**: All dashboard users for a website receive events
+2. **Visitor**: The conversation owner receives events (respecting visibility)
+3. **Connection**: Some events exclude the sender (e.g., userConnected)
+
+## Visibility Rules
+
+### Public Timeline Items
+
+Sent to both dashboard and visitor:
+- `visibility: "public"`
+- `type: "message"` from users, AI, or visitors
+
+### Private Timeline Items
+
+Only sent to dashboard:
+- `visibility: "private"`
+- Internal notes and tool outputs (unless explicitly public)
+
+### Tool Timeline Items
+
+Tool outputs are private by default. Only tool items with `visibility: "public"` are sent to visitors.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Connection Guide" icon="plug" href="/api/websocket/connection">
+    Learn how to establish WebSocket connections
+  </Card>
+  
+  <Card title="React Hook" icon="react" href="/api/hooks/use-realtime-support">
+    Use WebSocket events in React
+  </Card>
+</CardGroup>

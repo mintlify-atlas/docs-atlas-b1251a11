@@ -1,0 +1,325 @@
+---
+title: Development Setup
+description: Set up your local development environment for Cossistant
+icon: code
+---
+
+This guide will walk you through setting up a complete local development environment for Cossistant. Follow these steps to get the project running on your machine.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+<CardGroup cols={2}>
+  <Card title="Node.js" icon="node-js">
+    Version 18 or higher required
+  </Card>
+  <Card title="Bun" icon="rocket">
+    Version 1.2.22 or higher (package manager)
+  </Card>
+  <Card title="Docker" icon="docker">
+    For running Postgres and Redis locally
+  </Card>
+  <Card title="Git" icon="git-alt">
+    For cloning the repository
+  </Card>
+</CardGroup>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the Cossistant repository to your local machine:
+    
+    ```bash
+    git clone https://github.com/cossistant/cossistant.git
+    cd cossistant
+    ```
+  </Step>
+  
+  <Step title="Install Bun">
+    If you don't have Bun installed, install it using the official installer:
+    
+    ```bash
+    curl -fsSL https://bun.sh/install | bash
+    ```
+    
+    Verify the installation:
+    
+    ```bash
+    bun --version
+    # Should output: 1.2.22 or higher
+    ```
+  </Step>
+  
+  <Step title="Install Dependencies">
+    Install all project dependencies using Bun:
+    
+    ```bash
+    bun install
+    ```
+    
+    This will install dependencies for all workspaces in the monorepo using the lockfile.
+  </Step>
+  
+  <Step title="Set Up Environment Variables">
+    Copy the example environment file and configure it:
+    
+    ```bash
+    cp .env.example .env
+    ```
+    
+    Edit `.env` with your configuration. For local development, the Docker services provide:
+    
+    ```bash .env
+    # Database (provided by Docker)
+    DATABASE_HOST=localhost
+    DATABASE_PORT=5432
+    DATABASE_USERNAME=postgres
+    DATABASE_PASSWORD=postgres
+    DATABASE_NAME=cossistant
+    
+    # Redis (provided by Docker)
+    REDIS_URL=redis://localhost:6379
+    
+    # Authentication
+    BETTER_AUTH_URL=http://localhost:8787
+    BETTER_AUTH_SECRET=your_local_secret_here
+    
+    # API Configuration
+    API_KEY_SECRET=your_local_api_key_secret
+    PUBLIC_APP_URL=http://localhost:3000
+    
+    # Node Environment
+    NODE_ENV=development
+    ```
+    
+    <Note>
+      For local development, you can leave OAuth providers, email service, and S3 configuration empty unless testing those specific features.
+    </Note>
+  </Step>
+  
+  <Step title="Start Docker Services">
+    Start Postgres and Redis using Docker Compose:
+    
+    ```bash
+    docker compose up -d
+    ```
+    
+    Verify services are running:
+    
+    ```bash
+    docker compose ps
+    ```
+    
+    You should see both `postgres` and `redis` with status "Up" and healthy.
+  </Step>
+  
+  <Step title="Run Database Migrations">
+    Set up the database schema:
+    
+    ```bash
+    bun run db:migrate
+    ```
+    
+    Optionally, seed the database with test data:
+    
+    ```bash
+    bun run db:seed
+    ```
+  </Step>
+  
+  <Step title="Start Development Server">
+    Start all development services using Turborepo:
+    
+    ```bash
+    bun run dev
+    ```
+    
+    This single command will:
+    - Start Docker services (Postgres + Redis)
+    - Start the API server
+    - Start the web application
+    - Start worker processes
+    - Watch for file changes across all packages
+  </Step>
+</Steps>
+
+## Verify Your Setup
+
+Once everything is running, verify your setup:
+
+<Accordion title="Check Service Endpoints">
+  - **Web App**: [http://localhost:3000](http://localhost:3000)
+  - **API Server**: [http://localhost:8787](http://localhost:8787)
+  - **Postgres**: `localhost:5432`
+  - **Redis**: `localhost:6379`
+</Accordion>
+
+<Accordion title="Run Type Checks">
+  Ensure TypeScript types are valid across the monorepo:
+  
+  ```bash
+  bun run check-types
+  ```
+</Accordion>
+
+<Accordion title="Run Linter">
+  Check code quality with Biome:
+  
+  ```bash
+  bun run lint
+  ```
+</Accordion>
+
+<Accordion title="Build All Packages">
+  Test that everything builds successfully:
+  
+  ```bash
+  bun run build
+  ```
+</Accordion>
+
+## Development Workflow
+
+### Running Specific Workspaces
+
+Use Turborepo filters to run commands for specific packages:
+
+<CodeGroup>
+```bash React SDK Only
+# Run dev server for React SDK only
+bun run dev --filter @cossistant/react
+```
+
+```bash Next.js SDK Only
+# Build Next.js SDK only
+bun run build --filter @cossistant/next
+```
+
+```bash Web App
+# Start web app and its dependencies
+bun run dev --filter @cossistant/web
+```
+
+```bash Example App
+# Run example integration
+bun run dev --filter @cossistant/example-nextjs-tailwind
+```
+</CodeGroup>
+
+### Code Formatting and Linting
+
+Cossistant uses **Ultracite** (Biome) for code formatting and linting:
+
+```bash
+# Check code quality
+bun run check
+
+# Auto-fix issues
+bun run fix
+```
+
+### Git Hooks
+
+The project uses Husky and lint-staged for pre-commit hooks:
+
+- **Pre-commit**: Automatically formats staged files with Ultracite
+- **Commit-msg**: Validates commit messages against conventional commits
+
+Commit messages must follow the format:
+
+```
+type(scope): description
+```
+
+Allowed types: `ci`, `chore`, `docs`, `ticket`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`
+
+### Working with the Database
+
+<CodeGroup>
+```bash Migrations
+# Run migrations
+bun run db:migrate
+
+# Rollback migration (if supported)
+bun run db:rollback
+```
+
+```bash Seeding
+# Seed database with test data
+bun run db:seed
+```
+
+```bash Reset
+# Reset database (drop all tables)
+bun run db:reset
+```
+</CodeGroup>
+
+## Troubleshooting
+
+<Accordion title="Port Already in Use">
+  If you see port conflicts:
+  
+  ```bash
+  # Check what's using the port
+  lsof -i :3000  # or :8787, :5432, :6379
+  
+  # Kill the process
+  kill -9 <PID>
+  ```
+</Accordion>
+
+<Accordion title="Docker Services Not Starting">
+  Try resetting Docker:
+  
+  ```bash
+  docker compose down -v
+  docker compose up -d
+  ```
+  
+  Check logs:
+  
+  ```bash
+  docker compose logs postgres
+  docker compose logs redis
+  ```
+</Accordion>
+
+<Accordion title="Type Errors">
+  Rebuild all packages to ensure type definitions are up to date:
+  
+  ```bash
+  bun run build
+  bun run check-types
+  ```
+</Accordion>
+
+<Accordion title="Dependency Issues">
+  Clear and reinstall dependencies:
+  
+  ```bash
+  rm -rf node_modules
+  rm bun.lock
+  bun install
+  ```
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Monorepo Structure" icon="folder-tree" href="/contributing/monorepo-structure">
+    Learn about the project structure and workspace organization
+  </Card>
+  <Card title="Code Style Guide" icon="palette" href="/contributing/code-style">
+    Understand coding standards and best practices
+  </Card>
+</CardGroup>
+
+## Additional Resources
+
+- [Turborepo Documentation](https://turbo.build/repo/docs)
+- [Bun Documentation](https://bun.sh/docs)
+- [Biome Documentation](https://biomejs.dev/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)

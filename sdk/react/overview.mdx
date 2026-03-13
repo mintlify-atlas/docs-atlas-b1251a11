@@ -1,0 +1,233 @@
+---
+title: 'React SDK Overview'
+description: 'Build fully-featured customer support experiences in React with the official @cossistant/react package'
+---
+
+The Cossistant React SDK provides everything you need to integrate customer support into your React application. It includes prebuilt widgets, hooks for data management, UI primitives for custom interfaces, and real-time WebSocket support.
+
+## Installation
+
+Install the package using your preferred package manager:
+
+<CodeGroup>
+```bash npm
+npm install @cossistant/react
+```
+
+```bash yarn
+yarn add @cossistant/react
+```
+
+```bash bun
+bun add @cossistant/react
+```
+</CodeGroup>
+
+## Quick Start
+
+The fastest way to get started is with the prebuilt `Support` widget:
+
+```tsx
+import { SupportProvider, Support } from "@cossistant/react";
+import "@cossistant/react/styles.css";
+
+export function App() {
+  return (
+    <SupportProvider>
+      <Support />
+    </SupportProvider>
+  );
+}
+```
+
+<Note>
+The SDK auto-detects your public key from environment variables:
+- `VITE_COSSISTANT_API_KEY` (Vite)
+- `NEXT_PUBLIC_COSSISTANT_API_KEY` (Next.js)
+- `COSSISTANT_API_KEY` (other environments)
+
+You can also pass it explicitly via the `publicKey` prop on `SupportProvider`.
+</Note>
+
+## CSS Imports
+
+The SDK provides two CSS entrypoints:
+
+### Option 1: Plain CSS (Recommended)
+
+Import the pre-compiled CSS that works in any React application:
+
+```tsx
+import "@cossistant/react/styles.css";
+```
+
+This file contains all the compiled styles and requires no additional configuration.
+
+### Option 2: Tailwind v4 Source
+
+If you're using Tailwind CSS v4, import the source file for full theme customization:
+
+```tsx
+import "@cossistant/react/support.css";
+```
+
+<Warning>
+Tailwind v3 is not supported. Use the plain CSS import if you're on Tailwind v3.
+</Warning>
+
+## Core Concepts
+
+### Provider Pattern
+
+The SDK uses React Context to manage state. Wrap your app (or a subtree) with `SupportProvider`:
+
+```tsx
+import { SupportProvider } from "@cossistant/react";
+
+function App() {
+  return (
+    <SupportProvider
+      publicKey="your-public-key"
+      apiUrl="https://api.cossistant.com/v1"
+      wsUrl="wss://api.cossistant.com/ws"
+      autoConnect={true}
+    >
+      {/* Your app */}
+    </SupportProvider>
+  );
+}
+```
+
+### Visitor Identification
+
+Identify visitors to associate conversations with user accounts:
+
+```tsx
+import { IdentifySupportVisitor } from "@cossistant/react";
+
+function Dashboard({ user }) {
+  return (
+    <>
+      <IdentifySupportVisitor
+        externalId={user.id}
+        email={user.email}
+        name={user.name}
+        image={user.avatar}
+      />
+      {/* Rest of your dashboard */}
+    </>
+  );
+}
+```
+
+### Configuration
+
+Customize the widget appearance and behavior:
+
+```tsx
+import { SupportConfig } from "@cossistant/react";
+import { SenderType } from "@cossistant/types";
+
+function Dashboard() {
+  return (
+    <>
+      <SupportConfig
+        quickOptions={["Billing question", "Technical support", "Feature request"]}
+        defaultMessages={[
+          {
+            content: "Welcome! How can we help you today?",
+            senderType: SenderType.TeamMember,
+          },
+        ]}
+      />
+      {/* Rest of your app */}
+    </>
+  );
+}
+```
+
+## Architecture
+
+The SDK is organized into three main layers:
+
+<CardGroup cols={3}>
+  <Card title="Widgets" icon="window">
+    High-level components like `Support` and `Feedback` that provide complete, ready-to-use interfaces
+  </Card>
+  <Card title="Hooks" icon="anchor">
+    React hooks for data fetching, state management, and real-time subscriptions
+  </Card>
+  <Card title="Primitives" icon="cube">
+    Low-level UI components for building custom interfaces
+  </Card>
+</CardGroup>
+
+## Package Exports
+
+The SDK exports components and utilities from multiple namespaces:
+
+```tsx
+import {
+  // Provider
+  SupportProvider,
+  useSupport,
+
+  // Widgets
+  Support,
+  Feedback,
+
+  // Configuration
+  SupportConfig,
+  IdentifySupportVisitor,
+
+  // Hooks
+  useConversation,
+  useConversations,
+  useSendMessage,
+  useVisitor,
+
+  // Primitives (namespaced)
+  Primitives,
+} from "@cossistant/react";
+
+// Access primitives
+const { Button, Avatar, ConversationTimeline } = Primitives;
+```
+
+## TypeScript Support
+
+The SDK is written in TypeScript and exports all type definitions. Import types alongside components:
+
+```tsx
+import type {
+  SupportProps,
+  SupportHandle,
+  UseConversationResult,
+  ConversationStartEvent,
+} from "@cossistant/react";
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Support Widget" icon="comments" href="/sdk/react/support-widget">
+    Learn about the prebuilt support widget and customization options
+  </Card>
+  <Card title="Hooks" icon="anchor" href="/sdk/react/hooks">
+    Explore React hooks for conversations, messages, and visitors
+  </Card>
+  <Card title="Primitives" icon="cube" href="/sdk/react/primitives">
+    Build custom UIs with low-level components
+  </Card>
+  <Card title="Feedback Widget" icon="star" href="/sdk/react/feedback-widget">
+    Add feedback collection to your app
+  </Card>
+</CardGroup>
+
+## Need Help?
+
+If you encounter issues or have questions:
+
+- Check the [GitHub repository](https://github.com/cossistant/cossistant) for examples
+- Open an issue for bug reports
+- Join our community discussions for support

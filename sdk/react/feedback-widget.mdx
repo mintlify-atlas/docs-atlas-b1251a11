@@ -1,0 +1,403 @@
+---
+title: 'Feedback Widget'
+description: 'Collect user feedback with ratings, topics, and comments'
+---
+
+The `Feedback` component provides a lightweight widget for collecting user feedback. It supports star ratings, topic selection, and optional comments.
+
+## Basic Usage
+
+```tsx
+import { SupportProvider, Feedback } from "@cossistant/react";
+import "@cossistant/react/styles.css";
+
+function App() {
+  return (
+    <SupportProvider>
+      <Feedback />
+    </SupportProvider>
+  );
+}
+```
+
+## Props
+
+<ParamField path="className" type="string">
+  Additional CSS classes for the root wrapper
+</ParamField>
+
+<ParamField path="theme" type="'light' | 'dark'">
+  Force a specific theme. Omit for automatic detection
+</ParamField>
+
+<ParamField path="side" type="'top' | 'bottom' | 'left' | 'right'" default="top">
+  Which side of the trigger to place the content panel
+</ParamField>
+
+<ParamField path="align" type="'start' | 'center' | 'end'" default="end">
+  Alignment along the side axis
+</ParamField>
+
+<ParamField path="sideOffset" type="number" default="16">
+  Distance in pixels between the trigger and content
+</ParamField>
+
+<ParamField path="avoidCollisions" type="boolean" default="true">
+  Enable automatic collision avoidance
+</ParamField>
+
+<ParamField path="collisionPadding" type="number | object" default="8">
+  Padding from viewport edges when avoiding collisions
+</ParamField>
+
+<ParamField path="classNames" type="object">
+  Granular className overrides:
+  - `trigger`: The trigger button
+  - `content`: The content panel
+</ParamField>
+
+### Controlled State
+
+<ParamField path="open" type="boolean">
+  Controlled open state
+</ParamField>
+
+<ParamField path="onOpenChange" type="(open: boolean) => void">
+  Callback fired when open state changes
+</ParamField>
+
+<ParamField path="defaultOpen" type="boolean" default="false">
+  Whether the widget opens automatically (uncontrolled mode)
+</ParamField>
+
+### Feedback Configuration
+
+<ParamField path="conversationId" type="string">
+  Optional conversation ID to associate feedback with a specific conversation
+</ParamField>
+
+<ParamField path="trigger" type="string">
+  Custom trigger identifier for analytics (e.g., `"post-purchase"`, `"support-resolution"`)
+</ParamField>
+
+<ParamField path="topics" type="string[]">
+  List of feedback topics for users to select from
+</ParamField>
+
+<ParamField path="defaultTopic" type="string">
+  Pre-selected topic
+</ParamField>
+
+<ParamField path="topicPlaceholder" type="string">
+  Placeholder text for the topic selector
+</ParamField>
+
+<ParamField path="commentPlaceholder" type="string">
+  Placeholder text for the comment input
+</ParamField>
+
+<ParamField path="commentRequired" type="boolean" default="false">
+  Whether a comment is required to submit feedback
+</ParamField>
+
+## Examples
+
+### With Topics
+
+```tsx
+import { Feedback } from "@cossistant/react";
+
+function App() {
+  return (
+    <Feedback
+      topics={[
+        "Product Quality",
+        "Customer Service",
+        "Pricing",
+        "Features",
+        "Other",
+      ]}
+      topicPlaceholder="What is your feedback about?"
+      commentPlaceholder="Tell us more... (optional)"
+    />
+  );
+}
+```
+
+### Post-Conversation Feedback
+
+Collect feedback after a support conversation:
+
+```tsx
+import { Feedback } from "@cossistant/react";
+
+function ConversationResolved({ conversationId }) {
+  return (
+    <div>
+      <h3>Thanks for contacting us!</h3>
+      <p>How would you rate your experience?</p>
+      
+      <Feedback
+        conversationId={conversationId}
+        trigger="post-conversation"
+        topics={["Very helpful", "Somewhat helpful", "Not helpful"]}
+        defaultOpen={true}
+      />
+    </div>
+  );
+}
+```
+
+### Required Comments
+
+Make comments mandatory:
+
+```tsx
+<Feedback
+  commentRequired={true}
+  commentPlaceholder="Please tell us what we can improve"
+  topics={["Bug Report", "Feature Request", "Other"]}
+/>
+```
+
+### Custom Positioning
+
+```tsx
+<Feedback
+  side="top"
+  align="center"
+  sideOffset={12}
+/>
+```
+
+### Dark Theme
+
+```tsx
+<Feedback theme="dark" />
+```
+
+## Imperative API
+
+Control the widget programmatically using a ref:
+
+```tsx
+import { useRef } from "react";
+import { Feedback, type FeedbackHandle } from "@cossistant/react";
+
+function App() {
+  const feedbackRef = useRef<FeedbackHandle>(null);
+
+  return (
+    <>
+      <button onClick={() => feedbackRef.current?.open()}>
+        Give Feedback
+      </button>
+      
+      <Feedback ref={feedbackRef} />
+    </>
+  );
+}
+```
+
+### FeedbackHandle Methods
+
+<ParamField path="open" type="() => void">
+  Opens the feedback widget
+</ParamField>
+
+<ParamField path="close" type="() => void">
+  Closes the feedback widget
+</ParamField>
+
+<ParamField path="toggle" type="() => void">
+  Toggles the widget open/closed state
+</ParamField>
+
+## Compound Components
+
+### Custom Trigger
+
+Replace the default trigger button:
+
+```tsx
+import { Feedback } from "@cossistant/react";
+
+function App() {
+  return (
+    <Feedback>
+      <Feedback.Trigger className="custom-feedback-button">
+        {({ isOpen }) => (
+          <span>{isOpen ? "Close Feedback" : "Give Feedback"}</span>
+        )}
+      </Feedback.Trigger>
+    </Feedback>
+  );
+}
+```
+
+### Trigger Render Props
+
+The trigger receives render props:
+
+<ParamField path="isOpen" type="boolean">
+  Whether the feedback panel is currently open
+</ParamField>
+
+### Full Composition Mode
+
+```tsx
+import { Feedback } from "@cossistant/react";
+
+function App() {
+  return (
+    <Feedback.Root>
+      <Feedback.Trigger asChild>
+        <button className="custom-button">Feedback</button>
+      </Feedback.Trigger>
+      
+      <Feedback.Content
+        topics={["Great", "Good", "Needs improvement"]}
+        commentPlaceholder="Additional comments..."
+      />
+    </Feedback.Root>
+  );
+}
+```
+
+## Integration Patterns
+
+### Post-Purchase Feedback
+
+```tsx
+import { Feedback } from "@cossistant/react";
+
+function OrderConfirmation({ orderId }) {
+  return (
+    <div className="order-complete">
+      <h2>Order Complete!</h2>
+      <p>Thank you for your purchase.</p>
+      
+      <div className="feedback-section">
+        <h3>How was your experience?</h3>
+        <Feedback
+          trigger={`order-${orderId}`}
+          topics={[
+            "Excellent",
+            "Good",
+            "Fair",
+            "Poor",
+          ]}
+          defaultOpen={true}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+### In-App Feature Feedback
+
+```tsx
+import { Feedback } from "@cossistant/react";
+
+function FeatureTour({ featureName }) {
+  return (
+    <div className="feature-introduction">
+      <h3>New Feature: {featureName}</h3>
+      <p>Try out our latest improvement!</p>
+      
+      <Feedback
+        trigger={`feature-${featureName}`}
+        topics={["Love it", "It's okay", "Needs work"]}
+        commentPlaceholder="What do you think?"
+      />
+    </div>
+  );
+}
+```
+
+### Support Resolution Feedback
+
+```tsx
+import { Feedback } from "@cossistant/react";
+
+function SupportResolved({ conversationId }) {
+  return (
+    <div className="conversation-resolved">
+      <p>This conversation has been resolved.</p>
+      
+      <Feedback
+        conversationId={conversationId}
+        trigger="support-resolution"
+        topics={[
+          "Issue resolved",
+          "Helpful agent",
+          "Fast response",
+          "Needs improvement",
+        ]}
+        commentRequired={true}
+        commentPlaceholder="How was your support experience?"
+      />
+    </div>
+  );
+}
+```
+
+## Styling
+
+Customize the appearance with CSS classes:
+
+```tsx
+<Feedback
+  className="my-feedback-widget"
+  classNames={{
+    trigger: "feedback-trigger",
+    content: "feedback-panel",
+  }}
+/>
+```
+
+```css
+.feedback-trigger {
+  background: var(--brand-color);
+  border-radius: 8px;
+}
+
+.feedback-panel {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+}
+```
+
+## Best Practices
+
+<Card title="Keep It Simple" icon="sliders">
+  Limit topics to 3-5 options. Too many choices can overwhelm users and reduce completion rates.
+</Card>
+
+<Card title="Context Matters" icon="location-dot">
+  Use the `trigger` prop to track where feedback originates. This helps identify which features or interactions need improvement.
+</Card>
+
+<Card title="Optional Comments" icon="comment">
+  Make comments optional unless you need detailed feedback. Required fields can reduce submission rates.
+</Card>
+
+<Card title="Timing" icon="clock">
+  Show feedback prompts at natural points in the user journey (after purchase, after support resolution, after feature usage).
+</Card>
+
+## Accessibility
+
+- All interactive elements are keyboard accessible
+- ARIA labels are provided for screen readers
+- Focus management is handled automatically
+- Star ratings can be navigated with arrow keys
+
+## Mobile Support
+
+The feedback widget is fully responsive and works on mobile devices:
+
+- Touch-friendly star ratings
+- Mobile-optimized text inputs
+- Adaptive layout for small screens

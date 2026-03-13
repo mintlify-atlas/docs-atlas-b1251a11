@@ -1,0 +1,621 @@
+---
+title: Server Components
+description: Use Next.js Server Components to identify logged-in users and personalize support experiences
+---
+
+Next.js App Router allows you to fetch data and render components on the server. The Cossistant SDK provides `IdentifySupportVisitor` specifically for this use case - identifying logged-in users before the page hydrates.
+
+## Why Server Components?
+
+Using Server Components for user identification offers several advantages:
+
+<CardGroup cols={2}>
+  <Card title="Zero Client-Side Overhead" icon="gauge-high">
+    User data is embedded during SSR - no API calls or waterfalls on the client
+  </Card>
+  <Card title="Instant Personalization" icon="sparkles">
+    The widget knows who the user is before they interact with it
+  </Card>
+  <Card title="Secure by Default" icon="shield-check">
+    User tokens and session data never leave the server
+  </Card>
+  <Card title="SEO-Friendly" icon="magnifying-glass">
+    No hydration pop-in or layout shift
+  </Card>
+</CardGroup>
+
+## Basic Usage
+
+### Step 1: Create an authenticated layout
+
+Use a layout file to wrap authenticated routes:
+
+```tsx app/dashboard/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { getSession } from "@/lib/auth"; // Your auth library
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await getSession();
+
+  return (
+    <div>
+      {session?.user && (
+        <IdentifySupportVisitor
+          email={session.user.email}
+          externalId={session.user.id}
+          name={session.user.name}
+        />
+      )}
+      {children}
+    </div>
+  );
+}
+```
+
+### Step 2: Use in any nested page
+
+All pages under `/dashboard` inherit this identification:
+
+```tsx app/dashboard/page.tsx
+export default function DashboardPage() {
+  return (
+    <main>
+      <h1>Dashboard</h1>
+      <p>User is automatically identified for support!</p>
+    </main>
+  );
+}
+```
+
+<Note>
+  The `IdentifySupportVisitor` component renders nothing - it only sends identification data to the widget context.
+</Note>
+
+## Complete Example with NextAuth
+
+Here's a full working example using [NextAuth.js](https://next-auth.js.org/) for authentication:
+
+<Steps>
+  <Step title="Set up authentication">
+    ```tsx lib/auth.ts
+    import { getServerSession } from "next-auth/next";
+    import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
+    export type Session = {
+      user: {
+        id: string;
+        email: string;
+        name: string;
+        image?: string | null;
+        plan?: "free" | "pro" | "enterprise";
+        createdAt?: string;
+      };
+    };
+
+    export async function getSession(): Promise<Session | null> {
+      return getServerSession(authOptions);
+    }
+    ```
+  </Step>
+
+  <Step title="Create authenticated layout">
+    ```tsx app/(authenticated)/layout.tsx
+    import { IdentifySupportVisitor } from "@cossistant/next";
+    import { getSession } from "@/lib/auth";
+    import { redirect } from "next/navigation";
+
+    export default async function AuthenticatedLayout({
+      children,
+    }: {
+      children: React.ReactNode;
+    }) {
+      const session = await getSession();
+
+      // Redirect unauthenticated users
+      if (!session) {
+        redirect("/login");
+      }
+
+      return (
+        <>
+          <IdentifySupportVisitor
+            email={session.user.email}
+            externalId={session.user.id}
+            name={session.user.name}
+            image={session.user.image}
+            metadata={{
+              plan: session.user.plan,
+              signupDate: session.user.createdAt,
+            }}
+          />
+          {children}
+        </>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Create protected pages">
+    ```tsx app/(authenticated)/dashboard/page.tsx
+    // This is a Server Component by default
+    export default function DashboardPage() {
+      return (
+        <main className="p-8">
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="mt-4">
+            Your user info is automatically sent to the support widget.
+          </p>
+        </main>
+      );
+    }
+    ```
+  </Step>
+</Steps>
+
+## Props Reference
+
+### IdentifySupportVisitor
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `email` | `string` | Yes | User's email address (primary identifier) |
+| `externalId` | `string` | Yes | Your internal user ID |
+| `name` | `string` | No | User's display name |
+| `image` | `string \| null` | No | Avatar URL |
+| `metadata` | `Record<string, any>` | No | Custom user properties |
+
+### Metadata Structure
+
+You can attach any JSON-serializable data to the `metadata` prop:
+
+```tsx
+<IdentifySupportVisitor
+  email="user@example.com"
+  externalId="user_123"
+  metadata={{
+    // Subscription info
+    plan: "pro",
+    mrr: 49,
+    subscriptionStatus: "active",
+    
+    // Account details
+    signupDate: "2024-01-15",
+    lastLoginAt: "2024-03-13T10:30:00Z",
+    
+    // Product usage
+    projectsCreated: 12,
+    apiCallsThisMonth: 1543,
+    
+    // Support context
+    preferredLanguage: "en",
+    timezone: "America/New_York",
+  }}
+/>
+```
+
+This metadata is visible to support agents and can be used for:
+- Personalized responses
+- Priority routing
+- Analytics and segmentation
+- Custom automation rules
+
+## Patterns
+
+### Pattern 1: Per-Route Identification
+
+Different routes may need different identification logic:
+
+```tsx app/(admin)/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { getAdminSession } from "@/lib/admin-auth";
+
+export default async function AdminLayout({ children }) {
+  const admin = await getAdminSession();
+
+  return (
+    <>
+      {admin && (
+        <IdentifySupportVisitor
+          email={admin.email}
+          externalId={admin.id}
+          name={admin.name}
+          metadata={{
+            role: "admin",
+            permissions: admin.permissions,
+          }}
+        />
+      )}
+      {children}
+    </>
+  );
+}
+```
+
+### Pattern 2: Conditional Identification
+
+Only identify users on specific plans:
+
+```tsx app/dashboard/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { getSession } from "@/lib/auth";
+
+export default async function DashboardLayout({ children }) {
+  const session = await getSession();
+  const isPaidUser = ["pro", "enterprise"].includes(session?.user?.plan);
+
+  return (
+    <>
+      {isPaidUser && session?.user && (
+        <IdentifySupportVisitor
+          email={session.user.email}
+          externalId={session.user.id}
+          name={session.user.name}
+          metadata={{ plan: session.user.plan }}
+        />
+      )}
+      {children}
+    </>
+  );
+}
+```
+
+### Pattern 3: Incremental Identification
+
+Identify anonymous users first, then enrich when they log in:
+
+```tsx app/layout.tsx
+import { SupportProvider } from "@cossistant/next";
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <SupportProvider>
+          {/* Anonymous users get generic support */}
+          {children}
+        </SupportProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+```tsx app/(authenticated)/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { getSession } from "@/lib/auth";
+
+export default async function AuthenticatedLayout({ children }) {
+  const session = await getSession();
+
+  return (
+    <>
+      {session?.user && (
+        <IdentifySupportVisitor
+          email={session.user.email}
+          externalId={session.user.id}
+          name={session.user.name}
+        />
+      )}
+      {children}
+    </>
+  );
+}
+```
+
+When a user logs in and navigates to `/dashboard`, they're automatically identified without any client-side API calls.
+
+## Auth Library Integration
+
+### NextAuth.js
+
+```tsx app/(authenticated)/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
+export default async function AuthenticatedLayout({ children }) {
+  const session = await getServerSession(authOptions);
+
+  return (
+    <>
+      {session?.user && (
+        <IdentifySupportVisitor
+          email={session.user.email!}
+          externalId={session.user.id}
+          name={session.user.name!}
+          image={session.user.image}
+        />
+      )}
+      {children}
+    </>
+  );
+}
+```
+
+### Clerk
+
+```tsx app/(authenticated)/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { currentUser } from "@clerk/nextjs/server";
+
+export default async function AuthenticatedLayout({ children }) {
+  const user = await currentUser();
+
+  return (
+    <>
+      {user && (
+        <IdentifySupportVisitor
+          email={user.emailAddresses[0]?.emailAddress!}
+          externalId={user.id}
+          name={`${user.firstName} ${user.lastName}`.trim()}
+          image={user.imageUrl}
+          metadata={{
+            createdAt: user.createdAt,
+            lastSignInAt: user.lastSignInAt,
+          }}
+        />
+      )}
+      {children}
+    </>
+  );
+}
+```
+
+### Supabase Auth
+
+```tsx app/(authenticated)/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+
+export default async function AuthenticatedLayout({ children }) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  return (
+    <>
+      {user && (
+        <IdentifySupportVisitor
+          email={user.email!}
+          externalId={user.id}
+          name={user.user_metadata.full_name}
+          image={user.user_metadata.avatar_url}
+        />
+      )}
+      {children}
+    </>
+  );
+}
+```
+
+### Custom JWT/Session
+
+```tsx app/(authenticated)/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { cookies } from "next/headers";
+import { verifySession } from "@/lib/auth";
+
+export default async function AuthenticatedLayout({ children }) {
+  const cookieStore = cookies();
+  const token = cookieStore.get("session_token")?.value;
+  
+  if (!token) {
+    return <>{children}</>;
+  }
+
+  const session = await verifySession(token);
+
+  return (
+    <>
+      {session?.user && (
+        <IdentifySupportVisitor
+          email={session.user.email}
+          externalId={session.user.id}
+          name={session.user.name}
+        />
+      )}
+      {children}
+    </>
+  );
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always provide email and externalId">
+    These two fields are required for proper user tracking:
+    ```tsx
+    <IdentifySupportVisitor
+      email={user.email}      // Primary identifier
+      externalId={user.id}    // Your internal ID
+    />
+    ```
+  </Accordion>
+
+  <Accordion title="Place identification in layouts, not pages">
+    Layouts run once per route group, reducing unnecessary re-identification:
+    ```tsx
+    // ✅ Good - runs once for all dashboard pages
+    app/dashboard/layout.tsx
+
+    // ❌ Avoid - runs on every page navigation
+    app/dashboard/settings/page.tsx
+    ```
+  </Accordion>
+
+  <Accordion title="Use metadata for context">
+    Add relevant user data to improve support quality:
+    ```tsx
+    <IdentifySupportVisitor
+      email={user.email}
+      externalId={user.id}
+      metadata={{
+        plan: user.plan,
+        signupDate: user.createdAt,
+        lastPurchase: user.lastOrderDate,
+      }}
+    />
+    ```
+  </Accordion>
+
+  <Accordion title="Handle null sessions gracefully">
+    Don't render the component if there's no user:
+    ```tsx
+    {session?.user && (
+      <IdentifySupportVisitor
+        email={session.user.email}
+        externalId={session.user.id}
+      />
+    )}
+    ```
+  </Accordion>
+
+  <Accordion title="Avoid PII in metadata">
+    Don't include sensitive data like passwords, SSNs, or payment details:
+    ```tsx
+    // ✅ Good
+    metadata={{ plan: "pro", signupDate: "2024-01-15" }}
+
+    // ❌ Bad
+    metadata={{ password: "...", ssn: "..." }}
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Debugging
+
+### Check if identification is working
+
+Open the widget and send a message. In your Cossistant dashboard, the conversation should show:
+- User's name and email
+- Avatar (if provided)
+- All metadata fields
+
+### Verify Server Component execution
+
+Add a log in your layout:
+
+```tsx app/dashboard/layout.tsx
+export default async function DashboardLayout({ children }) {
+  const session = await getSession();
+  
+  console.log("[Server] Identifying user:", session?.user?.email);
+
+  return (
+    <>
+      {session?.user && (
+        <IdentifySupportVisitor
+          email={session.user.email}
+          externalId={session.user.id}
+        />
+      )}
+      {children}
+    </>
+  );
+}
+```
+
+This log will appear in your **terminal** (server-side), not in the browser console.
+
+### Inspect identification context
+
+Use the `useSupport` hook in a Client Component to verify:
+
+```tsx app/debug-support.tsx
+"use client";
+
+import { useSupport } from "@cossistant/next";
+
+export function DebugSupport() {
+  const { visitor } = useSupport();
+
+  return (
+    <pre className="text-xs">
+      {JSON.stringify(visitor, null, 2)}
+    </pre>
+  );
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Identification not working">
+    **Check these common issues:**
+    
+    1. Verify `IdentifySupportVisitor` is inside a Server Component (no `"use client"` directive)
+    2. Ensure your auth function actually returns a user
+    3. Check that `email` and `externalId` are non-empty strings
+    4. Look for errors in your terminal (server logs)
+  </Accordion>
+
+  <Accordion title="User shows as anonymous in dashboard">
+    **Possible causes:**
+    
+    - The `email` or `externalId` prop is `undefined` or `null`
+    - Session is not being fetched correctly
+    - `IdentifySupportVisitor` is not rendered (check conditional logic)
+    
+    **Debug:**
+    ```tsx
+    console.log("Session:", session);
+    console.log("Email:", session?.user?.email);
+    ```
+  </Accordion>
+
+  <Accordion title="Type errors with session">
+    TypeScript may complain about `session.user` being possibly undefined:
+    
+    ```tsx
+    // Use optional chaining and conditional rendering
+    {session?.user?.email && (
+      <IdentifySupportVisitor
+        email={session.user.email}
+        externalId={session.user.id}
+      />
+    )}
+    ```
+  </Accordion>
+
+  <Accordion title="Performance concerns">
+    Server Component fetches add latency to page loads. Optimize with:
+    
+    1. **Caching:** Use `unstable_cache` or `cache()` for session lookups
+    2. **Streaming:** Wrap in `<Suspense>` to avoid blocking the page
+    3. **Edge runtime:** Deploy to Vercel Edge for faster execution
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SupportConfig" icon="gear" href="/sdk/react/support-widget">
+    Customize widget behavior per page
+  </Card>
+  <Card title="Hooks Reference" icon="code" href="/sdk/react/hooks">
+    Access user data in Client Components
+  </Card>
+  <Card title="Custom Pages" icon="file" href="/sdk/react/support-widget">
+    Build custom support pages with routing
+  </Card>
+  <Card title="Metadata Fields" icon="tags" href="/concepts/visitor-identification">
+    Learn which metadata to track
+  </Card>
+</CardGroup>

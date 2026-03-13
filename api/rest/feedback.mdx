@@ -1,0 +1,449 @@
+---
+title: 'Feedback API'
+description: 'Collect and retrieve customer feedback'
+---
+
+# Feedback API
+
+The Feedback API allows you to collect structured feedback from visitors, including ratings, topics, and comments. Feedback can be tied to conversations or submitted standalone.
+
+## Base Endpoint
+
+```
+POST  /v1/feedback
+GET   /v1/feedback           (Private key only)
+GET   /v1/feedback/{id}     (Private key only)
+```
+
+## Submit Feedback
+
+`POST /v1/feedback`
+
+Submit new feedback from a visitor.
+
+### Authentication
+
+- **Public API Key**: Visitors can submit feedback for themselves
+- **Private API Key**: Submit feedback on behalf of any visitor/contact
+
+### Request Body
+
+<ParamField body="rating" type="number" required>
+  Rating from 1 (worst) to 5 (best)
+</ParamField>
+
+<ParamField body="topic" type="string">
+  Optional feedback topic or category (e.g., "Product Quality", "Support Experience")
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Optional free-form feedback comment
+</ParamField>
+
+<ParamField body="trigger" type="string">
+  What triggered this feedback (e.g., "conversation_resolved", "post_purchase", "scheduled_survey")
+</ParamField>
+
+<ParamField body="source" type="string" default="widget">
+  Source of the feedback: `widget`, `email`, `api`, `dashboard`
+</ParamField>
+
+<ParamField body="conversationId" type="string">
+  Optional conversation ID if this feedback is related to a specific conversation
+</ParamField>
+
+<ParamField body="visitorId" type="string">
+  Visitor ID (required with public key, can be in header or body)
+</ParamField>
+
+<ParamField body="contactId" type="string">
+  Contact ID (private key only)
+</ParamField>
+
+### Response
+
+<ResponseField name="feedback" type="object">
+  The created feedback entry
+  
+  <Expandable title="Feedback Properties">
+    <ResponseField name="id" type="string">
+      Unique feedback ID
+    </ResponseField>
+    
+    <ResponseField name="organizationId" type="string">
+      Organization ID
+    </ResponseField>
+    
+    <ResponseField name="websiteId" type="string">
+      Website ID
+    </ResponseField>
+    
+    <ResponseField name="conversationId" type="string">
+      Associated conversation ID (if any)
+    </ResponseField>
+    
+    <ResponseField name="visitorId" type="string">
+      Visitor ID who submitted the feedback
+    </ResponseField>
+    
+    <ResponseField name="contactId" type="string">
+      Contact ID (if visitor is identified)
+    </ResponseField>
+    
+    <ResponseField name="rating" type="number">
+      Rating value (1-5)
+    </ResponseField>
+    
+    <ResponseField name="topic" type="string">
+      Feedback topic
+    </ResponseField>
+    
+    <ResponseField name="comment" type="string">
+      Feedback comment
+    </ResponseField>
+    
+    <ResponseField name="trigger" type="string">
+      What triggered this feedback
+    </ResponseField>
+    
+    <ResponseField name="source" type="string">
+      Feedback source
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example: Submit Post-Conversation Feedback
+
+```bash
+curl -X POST https://api.cossistant.com/v1/feedback \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rating": 5,
+    "topic": "Support Experience",
+    "comment": "Very helpful and responsive support team!",
+    "trigger": "conversation_resolved",
+    "source": "widget",
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "visitorId": "01JG000000000000000000000"
+  }'
+```
+
+<ResponseExample>
+```json
+{
+  "feedback": {
+    "id": "01JG345678901ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "visitorId": "01JG000000000000000000000",
+    "contactId": "01JG000000000000000000005",
+    "rating": 5,
+    "topic": "Support Experience",
+    "comment": "Very helpful and responsive support team!",
+    "trigger": "conversation_resolved",
+    "source": "widget",
+    "createdAt": "2024-03-13T10:30:00.000Z",
+    "updatedAt": "2024-03-13T10:30:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+### Example: Submit Standalone Feedback
+
+```bash
+curl -X POST https://api.cossistant.com/v1/feedback \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rating": 4,
+    "topic": "Website Experience",
+    "comment": "Easy to navigate, but checkout could be faster",
+    "trigger": "scheduled_survey",
+    "source": "email"
+  }'
+```
+
+---
+
+## List Feedback
+
+`GET /v1/feedback`
+
+Retrieve a paginated list of feedback entries. **Requires private API key.**
+
+### Authentication
+
+<Snippet file="auth-private-key.mdx" />
+
+### Query Parameters
+
+<ParamField query="trigger" type="string">
+  Filter by trigger type
+</ParamField>
+
+<ParamField query="source" type="string">
+  Filter by source: `widget`, `email`, `api`, `dashboard`
+</ParamField>
+
+<ParamField query="conversationId" type="string">
+  Filter by conversation ID
+</ParamField>
+
+<ParamField query="visitorId" type="string">
+  Filter by visitor ID
+</ParamField>
+
+<ParamField query="page" type="number" default="1">
+  Page number (1-indexed)
+</ParamField>
+
+<ParamField query="limit" type="number" default="20">
+  Items per page (max 100)
+</ParamField>
+
+### Response
+
+<ResponseField name="feedback" type="array">
+  Array of feedback entries
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  <Expandable title="Pagination Details">
+    <ResponseField name="page" type="number">
+      Current page number
+    </ResponseField>
+    <ResponseField name="limit" type="number">
+      Items per page
+    </ResponseField>
+    <ResponseField name="total" type="number">
+      Total number of feedback entries
+    </ResponseField>
+    <ResponseField name="totalPages" type="number">
+      Total number of pages
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+```bash
+curl "https://api.cossistant.com/v1/feedback?trigger=conversation_resolved&limit=10" \
+  -H "Authorization: Bearer sk_test_xyz789..."
+```
+
+<ResponseExample>
+```json
+{
+  "feedback": [
+    {
+      "id": "01JG345678901ABCDEFGHIJK",
+      "organizationId": "01JG000000000000000000002",
+      "websiteId": "01JG000000000000000000001",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "visitorId": "01JG000000000000000000000",
+      "contactId": "01JG000000000000000000005",
+      "rating": 5,
+      "topic": "Support Experience",
+      "comment": "Very helpful and responsive support team!",
+      "trigger": "conversation_resolved",
+      "source": "widget",
+      "createdAt": "2024-03-13T10:30:00.000Z",
+      "updatedAt": "2024-03-13T10:30:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 47,
+    "totalPages": 5
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Get Feedback
+
+`GET /v1/feedback/{id}`
+
+Retrieve a single feedback entry by ID. **Requires private API key.**
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The feedback ID
+</ParamField>
+
+### Response
+
+<ResponseField name="feedback" type="object">
+  The feedback entry
+</ResponseField>
+
+### Example
+
+```bash
+curl https://api.cossistant.com/v1/feedback/01JG345678901ABCDEFGHIJK \
+  -H "Authorization: Bearer sk_test_xyz789..."
+```
+
+## Conversation Rating Sync
+
+When feedback is submitted with:
+- A `conversationId`
+- `trigger: "conversation_resolved"`
+
+The conversation's `visitorRating` field is automatically updated to match the feedback rating.
+
+```javascript
+// This feedback...
+await client.submitFeedback({
+  rating: 4,
+  conversationId: 'conv_123',
+  trigger: 'conversation_resolved'
+});
+
+// ...automatically updates the conversation:
+// conversation.visitorRating = 4
+// conversation.visitorRatingAt = '2024-03-13T10:30:00.000Z'
+```
+
+## Use Cases
+
+### Post-Conversation Feedback
+
+Collect feedback after a support conversation is resolved:
+
+```javascript
+// After conversation is marked as resolved
+await client.submitFeedback({
+  rating: 5,
+  topic: 'Support Quality',
+  comment: 'Issue resolved quickly',
+  conversationId: conversationId,
+  trigger: 'conversation_resolved',
+  source: 'widget'
+});
+```
+
+### Product Satisfaction Survey
+
+Collect general product feedback:
+
+```javascript
+await client.submitFeedback({
+  rating: 4,
+  topic: 'Product Experience',
+  comment: 'Love the features, but UI could be improved',
+  trigger: 'scheduled_survey',
+  source: 'email'
+});
+```
+
+### Feature Request Voting
+
+Collect feedback on specific features:
+
+```javascript
+await client.submitFeedback({
+  rating: 5,
+  topic: 'Dark Mode Request',
+  comment: 'Would love to see a dark mode option',
+  trigger: 'feature_request',
+  source: 'widget'
+});
+```
+
+## Error Responses
+
+<ResponseField name="400 Bad Request" type="object">
+  Invalid request data
+  ```json
+  {
+    "error": "BAD_REQUEST",
+    "message": "Visitor not found, please pass a valid visitorId"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404 Not Found" type="object">
+  Conversation not found (when conversationId is provided)
+  ```json
+  {
+    "error": "NOT_FOUND",
+    "message": "Conversation not found"
+  }
+  ```
+</ResponseField>
+
+## Analytics & Reporting
+
+Feedback data can be used for:
+
+- **CSAT (Customer Satisfaction)**: Average rating score
+- **NPS (Net Promoter Score)**: Classify ratings into promoters, passives, detractors
+- **Trend Analysis**: Track ratings over time
+- **Topic Analysis**: Identify common feedback themes
+- **Agent Performance**: Average rating per support agent
+- **Conversation Correlation**: Link feedback to conversation attributes
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Collect feedback at the right time">
+    - After conversation resolution (high response rate)
+    - Post-purchase (capture product experience)
+    - Periodic surveys (track trends)
+  </Accordion>
+  
+  <Accordion title="Make rating mandatory, comment optional">
+    ```javascript
+    {
+      rating: 4, // Required - easy to submit
+      comment: null // Optional - don't force it
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use consistent trigger values">
+    Define trigger constants:
+    ```javascript
+    const TRIGGERS = {
+      CONVERSATION_RESOLVED: 'conversation_resolved',
+      POST_PURCHASE: 'post_purchase',
+      SCHEDULED_SURVEY: 'scheduled_survey',
+      FEATURE_REQUEST: 'feature_request'
+    };
+    ```
+  </Accordion>
+  
+  <Accordion title="Link to conversations when applicable">
+    Always provide `conversationId` when feedback is conversation-related to enable correlation analysis.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Conversations API" icon="messages" href="/api/rest/conversations">
+    Learn about conversation ratings
+  </Card>
+  
+  <Card title="Analytics" icon="chart-line" href="/dashboard/conversations">
+    Analyze feedback trends
+  </Card>
+</CardGroup>

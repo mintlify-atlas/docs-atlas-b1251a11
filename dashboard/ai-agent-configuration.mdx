@@ -1,0 +1,437 @@
+---
+title: 'AI Agent Configuration'
+description: 'Configure, train, and optimize your AI-powered customer support agent in Cossistant'
+icon: 'robot'
+---
+
+# AI Agent Configuration
+
+Your AI agent is an intelligent assistant that automatically responds to customer questions based on your knowledge base. Configure its personality, behavior, and capabilities to deliver exceptional automated support.
+
+## Getting Started with AI Agent
+
+When you first set up Cossistant, you'll go through an onboarding flow to create your AI agent:
+
+<Steps>
+  <Step title="Provide Website Information">
+    Enter your website URL and let Cossistant automatically extract brand information
+  </Step>
+  <Step title="Define Agent Personality">
+    Choose your agent's name, tone, and goals
+  </Step>
+  <Step title="Generate Base Prompt">
+    Cossistant creates an optimized prompt based on your website and goals
+  </Step>
+  <Step title="Add Knowledge Sources">
+    Upload initial training data (web pages, files, FAQs)
+  </Step>
+  <Step title="Train Your Agent">
+    Process knowledge to activate your AI agent
+  </Step>
+</Steps>
+
+## AI Agent Settings
+
+Access agent configuration from **AI Agent > Settings** in the dashboard.
+
+### General Settings
+
+Customize your agent's core identity:
+
+#### Agent Name
+
+- The name visitors see when your AI responds
+- Common choices: Company name, "Support Bot", "AI Assistant"
+- Can include emoji for personality (e.g., "Acme Helper 🤖")
+
+#### Agent Description
+
+- Internal note describing your agent's purpose
+- Not visible to visitors
+- Helpful for team reference and documentation
+
+#### Base Prompt
+
+The foundational instruction that defines your AI's personality:
+
+```markdown
+You are a helpful customer support assistant for Acme Corp, 
+a B2B SaaS company providing project management software.
+
+Your role is to:
+- Answer questions about features, pricing, and technical issues
+- Guide users through common workflows
+- Escalate complex billing or account issues to human agents
+
+Tone: Professional, friendly, and solution-oriented
+Voice: Clear and concise - avoid jargon unless necessary
+```
+
+<Tip>
+A well-crafted base prompt is crucial for consistent AI behavior. Be specific about tone, scope, and escalation criteria.
+</Tip>
+
+#### Agent Goals
+
+Define 2-5 primary objectives for your AI:
+
+- Resolve common technical issues
+- Explain product features and pricing
+- Qualify leads and schedule demos
+- Guide users through onboarding
+- Reduce support ticket volume
+
+### AI Model Configuration
+
+#### Model Selection
+
+Choose the AI model powering your agent:
+
+- **Claude 3.5 Sonnet** (Recommended): Best balance of speed, quality, and cost
+- **GPT-4 Turbo**: OpenAI's powerful model
+- **GPT-4o**: Latest OpenAI model with improved performance
+
+<Note>
+**Model Access by Plan:**
+- **Free Plan**: Claude 3.5 Sonnet only
+- **Paid Plans**: Access to all latest models
+</Note>
+
+#### Temperature
+
+Control response creativity (0.0 - 1.0):
+
+- **0.0 - 0.3**: Focused, consistent, deterministic (recommended for support)
+- **0.4 - 0.6**: Balanced creativity and consistency
+- **0.7 - 1.0**: More creative and varied responses
+
+<Tip>
+For customer support, use temperature 0.2-0.3 for reliable, factual responses.
+</Tip>
+
+#### Max Output Tokens
+
+Limit response length:
+
+- **Default: 1024 tokens** (~750 words)
+- **Range: 256 - 4096 tokens**
+- Lower values = shorter, more concise responses
+- Higher values = more detailed explanations
+
+### Active Status
+
+Control whether your AI agent responds to conversations:
+
+- **Active** (ON): AI automatically responds to new messages
+- **Inactive** (OFF): AI does not respond - all conversations require human attention
+
+<Warning>
+When inactive, your AI agent will not respond to any visitors. Use this for testing or maintenance periods.
+</Warning>
+
+## Behavior Settings
+
+Fine-tune how your AI agent behaves in conversations.
+
+### Tool Invocation Budget
+
+Limit how many actions the AI can take per response:
+
+- **Default: 20 invocations**
+- **Range: 5 - 50**
+- Prevents runaway AI behavior
+- Ensures timely responses
+
+**What counts as a tool invocation:**
+- Searching knowledge base
+- Calling external APIs
+- Using specialized functions
+
+<Note>
+Most responses use 2-5 invocations. Only complex queries approach the limit.
+</Note>
+
+## Training Settings
+
+Configure how your AI learns from your knowledge base.
+
+### Training Tabs
+
+Access different types of training content:
+
+<CardGroup cols={3}>
+  <Card title="Web" icon="globe">
+    Automatically crawl and train on website content
+  </Card>
+  <Card title="Files" icon="file">
+    Upload documents and knowledge articles
+  </Card>
+  <Card title="FAQ" icon="question">
+    Add manual question-answer pairs
+  </Card>
+</CardGroup>
+
+See the [Knowledge Base](/dashboard/knowledge-base) documentation for detailed training instructions.
+
+### Training Status
+
+Monitor your agent's training progress:
+
+- **Idle**: No training in progress, agent is ready
+- **Pending**: Training queued, will start shortly
+- **Training**: Processing knowledge (shows percentage complete)
+- **Completed**: Training finished successfully
+- **Failed**: Error occurred during training (see error message)
+
+### Training Intervals
+
+Plan limits determine how often you can train:
+
+<Note>
+**Training Frequency by Plan:**
+- **Free Plan**: Once per 24 hours
+- **Hobby Plan**: Once per hour
+- **Pro Plan**: Unlimited (no cooldown)
+</Note>
+
+### Training Readiness
+
+Before the "Train" button becomes active:
+
+- **Knowledge Updates**: System detects new or modified content
+- **Cooldown Period**: Respects your plan's training interval
+- **Button State**: 
+  - Green = Ready to train
+  - Gray = Waiting for cooldown or no changes detected
+  - Shows next available training time
+
+## Advanced Prompt Configuration
+
+For power users, customize specific AI behaviors.
+
+### Behavior Studio
+
+Access from **AI Agent > Behavior** to customize:
+
+#### Core Behaviors
+
+- **Greeting Style**: How AI introduces itself
+- **Escalation Detection**: When to hand off to humans
+- **Response Format**: Structured vs. conversational
+- **Clarification Strategy**: How AI asks for more information
+- **Closing Messages**: How AI ends conversations
+
+#### Preset Options
+
+Each behavior includes presets:
+
+- **Formal**: Professional, corporate tone
+- **Casual**: Friendly, relaxed style
+- **Concise**: Brief, to-the-point responses
+- **Detailed**: Comprehensive explanations
+
+<Tip>
+Test different presets in real conversations to find what resonates with your audience.
+</Tip>
+
+### Prompt Studio
+
+Advanced users can directly edit prompt documents:
+
+- **Core Prompts**: Foundational instructions for AI behavior
+- **System Prompts**: Technical instructions for AI capabilities
+- **Override Defaults**: Customize any aspect of AI behavior
+
+<Warning>
+Editing prompts requires understanding of AI prompt engineering. Incorrect modifications can cause unexpected behavior.
+</Warning>
+
+## Skills and Tools
+
+Extend your AI agent's capabilities with built-in tools.
+
+### Available Tools
+
+Access from **AI Agent > Tools**:
+
+#### Knowledge Search
+- Searches your trained knowledge base
+- Retrieves relevant content to answer questions
+- Always enabled (core functionality)
+
+#### Conversation Escalation
+- Detects when visitors need human help
+- Notifies team members
+- Smoothly hands off conversations
+
+#### Lead Qualification
+- Asks qualifying questions
+- Captures contact information
+- Identifies high-value prospects
+
+<Note>
+More tools are being added regularly. Check the Tools page for the latest capabilities.
+</Note>
+
+### Tool Configuration
+
+Customize how each tool behaves:
+
+1. Navigate to **AI Agent > Tools**
+2. Click on a tool to configure it
+3. Adjust tool-specific settings
+4. Save changes (no re-training required)
+
+## Testing Your AI Agent
+
+Validate your agent's performance before going live:
+
+### Preview Mode
+
+Test your AI without affecting real visitors:
+
+1. Open the widget preview on any training page
+2. Ask questions as a visitor would
+3. Evaluate response quality and accuracy
+4. Iterate on knowledge base or prompts
+
+### Test Questions
+
+Ask these types of questions:
+
+**Knowledge Coverage:**
+- "What are your pricing plans?"
+- "How do I reset my password?"
+- "What features are included in Pro?"
+
+**Edge Cases:**
+- Typos and misspellings
+- Vague or ambiguous questions
+- Multiple questions in one message
+
+**Escalation Triggers:**
+- "I need to speak with a human"
+- "This isn't working, I want a refund"
+- "Can I talk to your manager?"
+
+## Performance Optimization
+
+### Improving Response Quality
+
+<CardGroup cols={2}>
+  <Card title="Expand Knowledge Base" icon="book">
+    Add more relevant content sources
+  </Card>
+  <Card title="Refine Base Prompt" icon="edit">
+    Clarify tone, scope, and objectives
+  </Card>
+  <Card title="Adjust Temperature" icon="temperature-high">
+    Lower for consistency, higher for creativity
+  </Card>
+  <Card title="Test Regularly" icon="vial">
+    Continuously validate against real questions
+  </Card>
+</CardGroup>
+
+### Handling Knowledge Gaps
+
+When your AI doesn't know something:
+
+1. AI responds with "I don't have information about that"
+2. AI offers to escalate to a human team member
+3. Review the question and add relevant content to your knowledge base
+4. Retrain your agent
+5. Test the question again
+
+<Tip>
+Regularly review conversations where AI couldn't answer to identify knowledge gaps.
+</Tip>
+
+## Danger Zone
+
+### Deleting Your AI Agent
+
+<Warning>
+Deleting your AI agent is **permanent and irreversible**. All knowledge base entries, training data, and settings will be permanently deleted.
+</Warning>
+
+To delete your agent:
+
+1. Scroll to the **Danger Zone** section at the bottom of Settings
+2. Click "Delete Agent"
+3. Confirm by typing your agent's name
+4. Click "Permanently Delete"
+
+What gets deleted:
+- AI agent configuration
+- All knowledge base entries (web sources, files, FAQs)
+- Training data and embeddings
+- Behavior customizations
+
+What's preserved:
+- Past conversations (conversation history remains)
+- Visitor contact information
+- Team member access
+
+## Troubleshooting
+
+### AI Not Responding
+
+**Check these settings:**
+- Verify AI agent is **Active** (toggle is ON)
+- Ensure training status is **Completed**
+- Check knowledge base has included content
+- Confirm AI isn't paused for specific conversations
+
+### Inaccurate Responses
+
+**Improve accuracy:**
+- Add more relevant knowledge sources
+- Remove outdated or contradictory content
+- Train agent after making changes
+- Lower temperature for more consistent responses
+
+### Training Failures
+
+**Common causes:**
+- Exceeded plan's knowledge base limits
+- Invalid content format
+- Empty knowledge entries
+- Network timeouts
+
+**Solutions:**
+- Check plan limits and upgrade if needed
+- Validate content format (markdown for files)
+- Remove empty entries
+- Try training again (temporary issues often resolve)
+
+### Agent Ignoring Instructions
+
+**Possible fixes:**
+- Make base prompt more explicit and directive
+- Use stronger language ("always", "never", "must")
+- Simplify complex instructions
+- Test with specific examples
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Start Simple" icon="seedling">
+    Begin with basic knowledge, expand gradually
+  </Card>
+  <Card title="Iterate Often" icon="arrows-rotate">
+    Continuously refine based on real interactions
+  </Card>
+  <Card title="Monitor Performance" icon="chart-line">
+    Review conversations to identify improvement areas
+  </Card>
+  <Card title="Keep Updated" icon="clock-rotate-left">
+    Refresh knowledge when product or policies change
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+- [Build Knowledge Base](/dashboard/knowledge-base) - Train your AI with content
+- [Test in Conversations](/dashboard/conversations) - See your AI in action
+- [Manage Your Team](/dashboard/team-management) - Collaborate with colleagues

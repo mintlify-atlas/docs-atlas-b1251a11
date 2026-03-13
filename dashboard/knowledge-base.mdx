@@ -1,0 +1,418 @@
+---
+title: 'Knowledge Base'
+description: 'Train your AI agent with website content, documents, and FAQs to deliver accurate, helpful responses'
+icon: 'book-open'
+---
+
+# Knowledge Base Management
+
+Your knowledge base is the foundation of your AI agent's intelligence. By adding relevant content from your website, files, and FAQs, you enable your AI to provide accurate, context-aware responses to customer questions.
+
+## Knowledge Base Overview
+
+The knowledge base consists of three main types of content:
+
+<CardGroup cols={3}>
+  <Card title="Web Sources" icon="globe">
+    Automatically crawled pages from your website
+  </Card>
+  <Card title="Files" icon="file-text">
+    Uploaded documents in markdown or text format
+  </Card>
+  <Card title="FAQs" icon="question-circle">
+    Manual question-and-answer pairs
+  </Card>
+</CardGroup>
+
+## Adding Web Sources
+
+Automatically train your AI agent by crawling your website:
+
+<Steps>
+  <Step title="Navigate to Web Sources">
+    Go to **AI Agent > Training > Web** in the dashboard
+  </Step>
+  <Step title="Add URL">
+    Click "Add URL" and enter your website URL (e.g., `https://example.com`)
+  </Step>
+  <Step title="Configure Crawl Settings">
+    - **Include Paths**: Specify URL patterns to crawl (optional)
+    - **Exclude Paths**: Skip specific URLs or sections (e.g., `/admin`, `/login`)
+    - **Crawl Limit**: Set maximum pages to crawl (based on your plan)
+  </Step>
+  <Step title="Start Crawling">
+    Click "Add" to begin crawling. The system will discover and process pages automatically.
+  </Step>
+</Steps>
+
+### Crawl Limits by Plan
+
+<Note>
+**Free Plan**: Up to 50 pages per website source  
+**Hobby Plan**: Up to 1,000+ total pages  
+**Pro Plan**: Up to 5,000+ total pages
+</Note>
+
+### Managing Web Sources
+
+The **Web Sources** page displays a hierarchical tree view:
+
+- **Domain-level organization**: All URLs grouped by domain
+- **Folder structure**: Pages organized by URL path
+- **Status indicators**: See crawl status (completed, in progress, failed)
+- **Individual page controls**: Toggle pages on/off without re-crawling
+
+#### Domain Tree View
+
+```
+📁 example.com (45 pages)
+  📄 / - Homepage
+  📁 /docs (12 pages)
+    📄 /docs/getting-started
+    📄 /docs/installation
+  📁 /pricing (3 pages)
+    📄 /pricing/plans
+```
+
+### Excluding Content
+
+Use exclude patterns to skip irrelevant pages:
+
+**Common exclusions:**
+- `/admin/*` - Admin panels
+- `/login` - Login pages
+- `/cart/*` - Shopping cart
+- `*?page=*` - Paginated URLs
+- `/thank-you` - Thank you pages
+
+<Tip>
+Use wildcards (`*`) to match multiple paths: `/blog/*/comments/*` excludes all comment sections.
+</Tip>
+
+## Adding Files
+
+Upload documents to provide detailed information:
+
+<Steps>
+  <Step title="Navigate to Files">
+    Go to **AI Agent > Training > Files** in the dashboard
+  </Step>
+  <Step title="Add File">
+    Click "Add File" to upload or create content manually
+  </Step>
+  <Step title="Choose Method">
+    - **Upload File**: Select `.md` or `.txt` files from your computer
+    - **Manual Entry**: Write content directly in the editor
+  </Step>
+  <Step title="Add Metadata">
+    - **Title**: Descriptive name for the file
+    - **Summary**: Optional brief description (helps AI understand context)
+    - **Content**: Full markdown or text content
+  </Step>
+</Steps>
+
+### Supported File Formats
+
+- **Markdown (`.md`)**: Full formatting support including headers, lists, tables
+- **Plain Text (`.txt`)**: Simple text documents
+
+<Warning>
+PDF, Word, and other binary formats require conversion to markdown or text before upload.
+</Warning>
+
+### File Best Practices
+
+**Structure your content clearly:**
+```markdown
+# Product Documentation
+
+## Overview
+Our product helps you manage customer support efficiently.
+
+## Key Features
+- Real-time messaging
+- AI-powered responses
+- Team collaboration
+
+## Pricing
+We offer three plans: Free, Hobby, and Pro.
+```
+
+**Tips for effective files:**
+- Use clear headings to organize information
+- Keep content focused on specific topics
+- Include keywords your customers might use
+- Update files when information changes
+
+## Creating FAQs
+
+Add manual question-and-answer pairs for common inquiries:
+
+<Steps>
+  <Step title="Navigate to FAQs">
+    Go to **AI Agent > Training > FAQ** in the dashboard
+  </Step>
+  <Step title="Add FAQ">
+    Click "Add FAQ" to create a new entry
+  </Step>
+  <Step title="Enter Question">
+    Write the question as customers would ask it
+  </Step>
+  <Step title="Provide Answer">
+    Write a clear, complete answer using markdown formatting
+  </Step>
+  <Step title="Save">
+    Click "Save" to add the FAQ to your knowledge base
+  </Step>
+</Steps>
+
+### FAQ Example
+
+**Question:**
+```
+How do I reset my password?
+```
+
+**Answer:**
+```markdown
+To reset your password:
+
+1. Go to the login page
+2. Click "Forgot Password?"
+3. Enter your email address
+4. Check your email for a reset link
+5. Follow the link and create a new password
+
+If you don't receive the email within 5 minutes, check your spam folder or contact support.
+```
+
+### FAQ Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Natural Language" icon="comment">
+    Write questions as customers would ask them
+  </Card>
+  <Card title="Be Specific" icon="bullseye">
+    Provide detailed, actionable answers
+  </Card>
+  <Card title="Include Examples" icon="list">
+    Show concrete examples when helpful
+  </Card>
+  <Card title="Keep Updated" icon="refresh">
+    Review and update FAQs regularly
+  </Card>
+</CardGroup>
+
+## Training Your AI Agent
+
+After adding knowledge base content, train your AI agent to use it:
+
+<Steps>
+  <Step title="Review Changes">
+    Check that all sources are marked as "Included" (toggle switch is on)
+  </Step>
+  <Step title="Click Train">
+    Navigate to any training page and click the "Train" button
+  </Step>
+  <Step title="Wait for Processing">
+    Training typically takes 2-5 minutes depending on content volume
+  </Step>
+  <Step title="Monitor Progress">
+    A progress bar shows training status and completion percentage
+  </Step>
+</Steps>
+
+### Training Status Indicators
+
+- **Idle**: No training in progress
+- **Pending**: Training queued, starting soon
+- **Training**: Processing content and generating embeddings (shows progress %)
+- **Completed**: Training finished successfully
+- **Failed**: Training encountered an error (see error message)
+
+<Note>
+**Training Intervals by Plan:**
+- **Free Plan**: Once per 24 hours
+- **Hobby Plan**: Once per hour
+- **Pro Plan**: Unlimited training
+</Note>
+
+### What Happens During Training?
+
+1. **Content Extraction**: Text is extracted from all included sources
+2. **Chunking**: Content is split into optimal-sized segments
+3. **Embedding Generation**: AI creates vector representations of content
+4. **Indexing**: Embeddings are indexed for fast retrieval
+5. **Activation**: Your AI agent now uses this knowledge to answer questions
+
+## Managing Knowledge Entries
+
+### Viewing All Knowledge
+
+Each training section (Web, Files, FAQ) shows:
+- **Entry count**: Total number of items
+- **Plan limits**: Current usage vs. plan limit
+- **Last updated**: When content was last modified
+- **Include/exclude toggle**: Enable or disable specific entries
+
+### Editing Entries
+
+**Web Sources:**
+- Cannot edit crawled content directly (it reflects your live website)
+- Can toggle pages on/off
+- Can recrawl to update content
+
+**Files:**
+1. Click the edit icon next to any file
+2. Modify title, summary, or content
+3. Click "Save" to update
+4. Train your AI to apply changes
+
+**FAQs:**
+1. Click the edit icon next to any FAQ
+2. Update question or answer
+3. Click "Save"
+4. Train your AI to apply changes
+
+### Deleting Entries
+
+<Warning>
+Deleting knowledge entries is permanent and cannot be undone.
+</Warning>
+
+1. Click the delete icon (trash can) next to the entry
+2. Confirm deletion in the popup dialog
+3. Train your AI to remove the content from its knowledge
+
+### Including/Excluding Content
+
+Control which entries the AI uses:
+
+- **Included** (toggle on): AI uses this content when responding
+- **Excluded** (toggle off): Content is stored but not used by AI
+
+<Tip>
+Exclude outdated content temporarily instead of deleting it. You can re-include it later if needed.
+</Tip>
+
+## Knowledge Base Statistics
+
+Monitor your knowledge base usage:
+
+### Web Sources Stats
+
+- **Total Pages**: Number of crawled pages
+- **Included Pages**: Pages actively used by AI
+- **Plan Limit**: Maximum pages allowed
+- **Sources**: Number of domains/URLs added
+
+### Files Stats
+
+- **Total Files**: Number of uploaded documents
+- **Plan Limit**: Maximum files allowed
+- **Total Size**: Combined size of all files
+
+### FAQ Stats
+
+- **Total FAQs**: Number of question-answer pairs
+- **Plan Limit**: Maximum FAQs allowed
+
+## Storage Limits
+
+<Note>
+**Storage Limits by Plan:**
+- **Free Plan**: 10 MB total knowledge base
+- **Hobby Plan**: 50 MB total knowledge base
+- **Pro Plan**: 200 MB total knowledge base
+</Note>
+
+When approaching limits:
+- Remove unnecessary content
+- Exclude rarely-used pages
+- Upgrade your plan for more storage
+
+## Advanced Features
+
+### Knowledge Preview
+
+View exactly what your AI sees:
+
+1. Click the preview icon next to any entry
+2. See the processed content as the AI interprets it
+3. Verify formatting and structure are correct
+
+### Bulk Operations
+
+**For Web Sources:**
+- Select multiple pages using checkboxes
+- Apply include/exclude to all selected
+- Delete multiple entries at once
+
+### Recrawling Websites
+
+Update web content to reflect website changes:
+
+1. Click the refresh icon next to a domain
+2. The system re-crawls all pages for that source
+3. New pages are added, removed pages are deleted
+4. Modified pages are updated
+5. Train your AI to apply the updates
+
+<Tip>
+Recrawl automatically when you update your website documentation or product pages.
+</Tip>
+
+## Optimization Tips
+
+<CardGroup cols={2}>
+  <Card title="Focus on Quality" icon="star">
+    Better to have 10 great sources than 100 mediocre ones
+  </Card>
+  <Card title="Keep It Current" icon="clock">
+    Remove or update outdated information regularly
+  </Card>
+  <Card title="Organize Logically" icon="folder-tree">
+    Use clear titles and summaries for easy management
+  </Card>
+  <Card title="Test Coverage" icon="check">
+    Ask your AI questions to verify it has the right knowledge
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Crawl Failures
+
+**Problem**: Website pages won't crawl
+
+**Solutions:**
+- Verify the URL is publicly accessible (not behind a login)
+- Check robots.txt doesn't block crawling
+- Ensure pages don't require JavaScript to load content
+- Try crawling a different URL from the same domain
+
+### Training Failures
+
+**Problem**: Training fails with an error
+
+**Solutions:**
+- Check if you've exceeded plan limits
+- Verify content isn't empty or corrupted
+- Remove extremely large files (split into smaller parts)
+- Contact support if error persists
+
+### AI Not Using Knowledge
+
+**Problem**: AI gives generic answers instead of using your content
+
+**Solutions:**
+- Verify training completed successfully (status shows "Completed")
+- Check entries are marked as "Included"
+- Ensure content is relevant to the question being asked
+- Try rephrasing content to match common customer questions
+
+## Next Steps
+
+- [Configure AI Behavior](/dashboard/ai-agent-configuration) - Customize AI personality
+- [Test in Conversations](/dashboard/conversations) - See your AI in action
+- [Review Performance](/dashboard/overview) - Monitor AI effectiveness

@@ -1,0 +1,377 @@
+---
+title: 'useRealtimeSupport'
+description: 'Subscribe to real-time WebSocket events in React'
+---
+
+# useRealtimeSupport
+
+React hook for subscribing to real-time WebSocket events from the Cossistant API.
+
+## Import
+
+```typescript
+import { useRealtimeSupport } from '@cossistant/react';
+```
+
+## Basic Usage
+
+```tsx
+import { useRealtimeSupport } from '@cossistant/react';
+
+function ChatWidget() {
+  const { isConnected, lastEvent } = useRealtimeSupport({
+    onEvent: (event) => {
+      console.log('Received event:', event.type, event.payload);
+      
+      switch (event.type) {
+        case 'timelineItemCreated':
+          console.log('New message:', event.payload.item);
+          break;
+        case 'conversationTyping':
+          console.log('Typing:', event.payload.isTyping);
+          break;
+      }
+    }
+  });
+  
+  return (
+    <div>
+      <div className={isConnected ? 'connected' : 'disconnected'}>
+        {isConnected ? 'Connected' : 'Disconnected'}
+      </div>
+    </div>
+  );
+}
+```
+
+## API Reference
+
+### Parameters
+
+<ParamField path="options" type="object">
+  Optional configuration object
+  
+  <Expandable title="Options Properties">
+    <ParamField path="onEvent" type="function">
+      Callback function invoked for every WebSocket event
+      
+      ```typescript
+      (event: AnyRealtimeEvent) => void
+      ```
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Return Value
+
+<ResponseField name="isConnected" type="boolean">
+  Whether the WebSocket is currently connected
+</ResponseField>
+
+<ResponseField name="isConnecting" type="boolean">
+  Whether a connection attempt is in progress
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  Connection error if any
+</ResponseField>
+
+<ResponseField name="send" type="function">
+  Send an event to the server
+  
+  ```typescript
+  send(event: AnyRealtimeEvent) => void
+  ```
+</ResponseField>
+
+<ResponseField name="lastEvent" type="object | null">
+  The most recent event received
+</ResponseField>
+
+<ResponseField name="lastMessage" type="object | null">
+  (Deprecated) Alias for `lastEvent`
+</ResponseField>
+
+<ResponseField name="subscribe" type="function">
+  Subscribe to events programmatically
+  
+  ```typescript
+  subscribe(handler: (event: AnyRealtimeEvent) => void) => () => void
+  ```
+  
+  Returns an unsubscribe function
+</ResponseField>
+
+## Examples
+
+### Handle New Messages
+
+```tsx
+function MessageList({ conversationId }) {
+  const [messages, setMessages] = useState([]);
+  
+  useRealtimeSupport({
+    onEvent: (event) => {
+      if (event.type === 'timelineItemCreated' && 
+          event.payload.conversationId === conversationId) {
+        setMessages(prev => [...prev, event.payload.item]);
+      }
+    }
+  });
+  
+  return (
+    <ul>
+      {messages.map(msg => (
+        <li key={msg.id}>{msg.text}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Show Typing Indicators
+
+```tsx
+function TypingIndicator({ conversationId }) {
+  const [typing, setTyping] = useState(false);
+  
+  useRealtimeSupport({
+    onEvent: (event) => {
+      if (event.type === 'conversationTyping' && 
+          event.payload.conversationId === conversationId) {
+        setTyping(event.payload.isTyping);
+      }
+    }
+  });
+  
+  return typing ? <div>Someone is typing...</div> : null;
+}
+```
+
+### Send Typing Events
+
+```tsx
+function MessageComposer({ conversationId }) {
+  const [message, setMessage] = useState('');
+  const { send, isConnected } = useRealtimeSupport();
+  
+  const handleChange = (e) => {
+    setMessage(e.target.value);
+    
+    if (isConnected) {
+      send({
+        type: 'conversationTyping',
+        payload: {
+          conversationId,
+          isTyping: e.target.value.length > 0,
+          visitorPreview: e.target.value
+        }
+      });
+    }
+  };
+  
+  return (
+    <textarea
+      value={message}
+      onChange={handleChange}
+      placeholder="Type your message..."
+    />
+  );
+}
+```
+
+### Programmatic Subscription
+
+```tsx
+function ConversationUpdater() {
+  const { subscribe } = useRealtimeSupport();
+  
+  useEffect(() => {
+    // Subscribe when component mounts
+    const unsubscribe = subscribe((event) => {
+      if (event.type === 'conversationUpdated') {
+        console.log('Conversation updated:', event.payload);
+      }
+    });
+    
+    // Unsubscribe when component unmounts
+    return unsubscribe;
+  }, [subscribe]);
+  
+  return null;
+}
+```
+
+### Connection Status Indicator
+
+```tsx
+function ConnectionStatus() {
+  const { isConnected, isConnecting, error } = useRealtimeSupport();
+  
+  if (error) {
+    return <div className="error">Connection error: {error.message}</div>;
+  }
+  
+  if (isConnecting) {
+    return <div className="connecting">Connecting...</div>;
+  }
+  
+  return (
+    <div className={isConnected ? 'connected' : 'disconnected'}>
+      {isConnected ? '● Connected' : '○ Disconnected'}
+    </div>
+  );
+}
+```
+
+### AI Agent Processing
+
+```tsx
+function AIProcessingIndicator({ conversationId }) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  useRealtimeSupport({
+    onEvent: (event) => {
+      if (event.payload.conversationId !== conversationId) return;
+      
+      if (event.type === 'aiAgentProcessingStarted') {
+        setIsProcessing(true);
+      } else if (event.type === 'aiAgentProcessingCompleted') {
+        setIsProcessing(false);
+      }
+    }
+  });
+  
+  return isProcessing ? (
+    <div className="ai-processing">
+      AI is thinking...
+    </div>
+  ) : null;
+}
+```
+
+## Event Filtering
+
+Filter events by type or conversation:
+
+```tsx
+function FilteredEvents({ conversationId, eventTypes }) {
+  useRealtimeSupport({
+    onEvent: (event) => {
+      // Filter by conversation
+      if (event.payload.conversationId !== conversationId) {
+        return;
+      }
+      
+      // Filter by event type
+      if (!eventTypes.includes(event.type)) {
+        return;
+      }
+      
+      // Handle filtered event
+      console.log('Relevant event:', event);
+    }
+  });
+}
+
+// Usage
+<FilteredEvents
+  conversationId="01JG123..."
+  eventTypes={['timelineItemCreated', 'conversationSeen']}
+/>
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Filter events early">
+    ```tsx
+    useRealtimeSupport({
+      onEvent: (event) => {
+        // Check conditions first
+        if (event.payload.conversationId !== currentConversationId) {
+          return; // Exit early
+        }
+        
+        // Then handle event
+        handleEvent(event);
+      }
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Memoize event handlers">
+    ```tsx
+    const handleEvent = useCallback((event) => {
+      // Handle event
+    }, [dependencies]);
+    
+    useRealtimeSupport({ onEvent: handleEvent });
+    ```
+  </Accordion>
+  
+  <Accordion title="Use subscribe for dynamic listeners">
+    ```tsx
+    const { subscribe } = useRealtimeSupport();
+    
+    useEffect(() => {
+      if (!shouldListen) return;
+      
+      return subscribe(handleEvent);
+    }, [shouldListen, subscribe, handleEvent]);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## WebSocket Provider
+
+This hook requires the `WebSocketProvider` in your component tree:
+
+```tsx
+import { CossistantProvider } from '@cossistant/react';
+
+function App() {
+  return (
+    <CossistantProvider publicKey="pk_test_...">
+      <ChatWidget />
+    </CossistantProvider>
+  );
+}
+```
+
+The provider automatically:
+- Establishes WebSocket connection
+- Handles reconnection with exponential backoff
+- Manages connection state
+- Distributes events to hooks
+
+## TypeScript Support
+
+```typescript
+import { useRealtimeSupport } from '@cossistant/react';
+import type { AnyRealtimeEvent } from '@cossistant/types/realtime-events';
+
+function MyComponent() {
+  useRealtimeSupport({
+    onEvent: (event: AnyRealtimeEvent) => {
+      // Fully typed event
+      if (event.type === 'timelineItemCreated') {
+        // event.payload is correctly typed
+        console.log(event.payload.item.text);
+      }
+    }
+  });
+}
+```
+
+## Related Hooks
+
+<CardGroup cols={2}>
+  <Card title="useConversation" icon="message" href="/api/hooks/use-conversation">
+    Load conversation data
+  </Card>
+  
+  <Card title="useSendMessage" icon="paper-plane" href="/api/hooks/use-send-message">
+    Send messages
+  </Card>
+</CardGroup>

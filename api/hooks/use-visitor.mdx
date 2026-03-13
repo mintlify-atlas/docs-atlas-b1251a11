@@ -1,0 +1,438 @@
+---
+title: 'useVisitor'
+description: 'Manage visitor identity and metadata in React'
+---
+
+# useVisitor
+
+React hook for accessing and managing the current visitor's identity and metadata.
+
+## Import
+
+```typescript
+import { useVisitor } from '@cossistant/react';
+```
+
+## Basic Usage
+
+```tsx
+import { useVisitor } from '@cossistant/react';
+
+function VisitorInfo() {
+  const { visitor, identify, setVisitorMetadata } = useVisitor();
+  
+  if (!visitor) {
+    return <div>No visitor session</div>;
+  }
+  
+  return (
+    <div>
+      <p>Visitor ID: {visitor.id}</p>
+      <p>Browser: {visitor.browser}</p>
+      <p>Location: {visitor.city}, {visitor.country}</p>
+    </div>
+  );
+}
+```
+
+## API Reference
+
+### Return Value
+
+<ResponseField name="visitor" type="object | null">
+  The current visitor object
+  
+  <Expandable title="Visitor Properties">
+    <ResponseField name="id" type="string">
+      Visitor ID (ULID)
+    </ResponseField>
+    
+    <ResponseField name="browser" type="string | null">
+      Browser name (e.g., "Chrome")
+    </ResponseField>
+    
+    <ResponseField name="os" type="string | null">
+      Operating system
+    </ResponseField>
+    
+    <ResponseField name="device" type="string | null">
+      Device model
+    </ResponseField>
+    
+    <ResponseField name="deviceType" type="string | null">
+      `desktop`, `mobile`, or `tablet`
+    </ResponseField>
+    
+    <ResponseField name="city" type="string | null">
+      City name
+    </ResponseField>
+    
+    <ResponseField name="region" type="string | null">
+      State/region
+    </ResponseField>
+    
+    <ResponseField name="country" type="string | null">
+      Country name
+    </ResponseField>
+    
+    <ResponseField name="countryCode" type="string | null">
+      ISO country code
+    </ResponseField>
+    
+    <ResponseField name="language" type="string | null">
+      Preferred language
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    
+    <ResponseField name="lastSeenAt" type="string | null">
+      Last activity timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="identify" type="function">
+  Link the visitor to an identified contact
+  
+  ```typescript
+  identify(params: {
+    externalId?: string;
+    email?: string;
+    name?: string;
+    image?: string;
+    metadata?: Record<string, unknown>;
+  }) => Promise<{ contactId: string; visitorId: string } | null>
+  ```
+</ResponseField>
+
+<ResponseField name="setVisitorMetadata" type="function">
+  Update metadata for the visitor's contact (must be identified first)
+  
+  ```typescript
+  setVisitorMetadata(metadata: Record<string, unknown>) => Promise<VisitorResponse | null>
+  ```
+</ResponseField>
+
+## Examples
+
+### Display Visitor Info
+
+```tsx
+function VisitorCard() {
+  const { visitor } = useVisitor();
+  
+  if (!visitor) return null;
+  
+  return (
+    <div className="visitor-card">
+      <div className="device">
+        {visitor.deviceType === 'mobile' ? '📱' : '💻'}
+        {visitor.browser} on {visitor.os}
+      </div>
+      <div className="location">
+        📍 {visitor.city}, {visitor.country}
+      </div>
+      {visitor.language && (
+        <div className="language">
+          🌐 {visitor.language}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Identify Visitor
+
+```tsx
+function LoginForm() {
+  const { identify } = useVisitor();
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    const result = await identify({
+      email,
+      name,
+      externalId: 'user_123', // Your system's user ID
+      metadata: {
+        plan: 'pro',
+        signupDate: new Date().toISOString()
+      }
+    });
+    
+    if (result) {
+      console.log('Identified as contact:', result.contactId);
+    }
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+      />
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Name"
+      />
+      <button type="submit">Identify</button>
+    </form>
+  );
+}
+```
+
+### Update Metadata
+
+```tsx
+function UpdatePreferences() {
+  const { setVisitorMetadata } = useVisitor();
+  const [preferences, setPreferences] = useState({
+    theme: 'light',
+    notifications: true
+  });
+  
+  const save = async () => {
+    await setVisitorMetadata({
+      preferences
+    });
+  };
+  
+  return (
+    <div>
+      <label>
+        <input
+          type="checkbox"
+          checked={preferences.notifications}
+          onChange={(e) => setPreferences(prev => ({
+            ...prev,
+            notifications: e.target.checked
+          }))}
+        />
+        Enable notifications
+      </label>
+      <button onClick={save}>Save</button>
+    </div>
+  );
+}
+```
+
+### Track User Actions
+
+```tsx
+function TrackPurchase({ orderId, amount }) {
+  const { setVisitorMetadata } = useVisitor();
+  
+  useEffect(() => {
+    setVisitorMetadata({
+      lastPurchase: {
+        orderId,
+        amount,
+        date: new Date().toISOString()
+      },
+      totalSpent: amount // Will be summed server-side
+    });
+  }, [orderId, amount, setVisitorMetadata]);
+  
+  return <div>Order confirmed</div>;
+}
+```
+
+### Conditional Rendering Based on Visitor
+
+```tsx
+function LocalizedGreeting() {
+  const { visitor } = useVisitor();
+  
+  const greeting = useMemo(() => {
+    const lang = visitor?.language?.split('-')[0];
+    
+    const greetings = {
+      'en': 'Hello',
+      'es': 'Hola',
+      'fr': 'Bonjour',
+      'de': 'Guten Tag',
+      'ja': 'こんにちは'
+    };
+    
+    return greetings[lang] || 'Hello';
+  }, [visitor?.language]);
+  
+  return <h1>{greeting}!</h1>;
+}
+```
+
+### Show Returning Visitor Message
+
+```tsx
+function WelcomeBack() {
+  const { visitor } = useVisitor();
+  
+  const isReturning = useMemo(() => {
+    if (!visitor?.createdAt) return false;
+    
+    const created = new Date(visitor.createdAt);
+    const hoursSinceCreation = (Date.now() - created.getTime()) / (1000 * 60 * 60);
+    
+    return hoursSinceCreation > 24; // Created more than 24 hours ago
+  }, [visitor?.createdAt]);
+  
+  if (isReturning) {
+    return <div className="welcome-back">Welcome back! 👋</div>;
+  }
+  
+  return <div className="welcome-new">Welcome! 🎉</div>;
+}
+```
+
+## Visitor vs Contact
+
+### Visitor
+- **Anonymous**: Created automatically on first visit
+- **Temporary**: Tracked by browser localStorage
+- **Device-specific**: One visitor per browser/device
+- **Limited data**: Browser, device, location
+
+### Contact
+- **Identified**: Created via `identify()` with email/name
+- **Persistent**: Survives across devices when logged in
+- **Unified**: Multiple visitors can link to one contact
+- **Rich data**: Custom metadata, conversation history
+
+```tsx
+// Visitor (anonymous)
+{
+  id: '01JG000000000000000000000',
+  browser: 'Chrome',
+  city: 'New York'
+}
+
+// After identify()
+{
+  // Visitor is linked to:
+  contactId: '01JG000000000000000000005',
+  email: 'user@example.com',
+  name: 'John Doe',
+  metadata: { plan: 'pro', ... }
+}
+```
+
+## Metadata Best Practices
+
+<AccordionGroup>
+  <Accordion title="Store custom user properties">
+    ```tsx
+    setVisitorMetadata({
+      accountType: 'enterprise',
+      companySize: '50-100',
+      industry: 'SaaS'
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Track user journey">
+    ```tsx
+    setVisitorMetadata({
+      visitedPages: ['/pricing', '/features', '/contact'],
+      ctaClicked: 'start-trial',
+      referralSource: 'google-ads'
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Support personalization">
+    ```tsx
+    setVisitorMetadata({
+      favoriteCategories: ['electronics', 'books'],
+      preferredLanguage: 'en',
+      timezone: 'America/New_York'
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Must identify first">
+    ```tsx
+    // This will fail if visitor is not identified:
+    await setVisitorMetadata({ plan: 'pro' });
+    
+    // Must call identify() first:
+    await identify({ email: 'user@example.com' });
+    await setVisitorMetadata({ plan: 'pro' }); // Now works
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Error Handling
+
+```tsx
+function SafeIdentify() {
+  const { identify } = useVisitor();
+  const [error, setError] = useState(null);
+  
+  const handleIdentify = async (email) => {
+    try {
+      const result = await identify({ email });
+      
+      if (!result) {
+        setError('Failed to identify visitor');
+        return;
+      }
+      
+      console.log('Success:', result);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  
+  return (
+    <div>
+      {error && <div className="error">{error}</div>}
+    </div>
+  );
+}
+```
+
+## TypeScript
+
+```typescript
+import { useVisitor } from '@cossistant/react';
+import type { PublicVisitor, VisitorMetadata } from '@cossistant/types';
+
+function TypedComponent() {
+  const { visitor, setVisitorMetadata } = useVisitor();
+  
+  // Fully typed
+  const visitorId: string | undefined = visitor?.id;
+  const city: string | null | undefined = visitor?.city;
+  
+  // Metadata is type-safe
+  const metadata: VisitorMetadata = {
+    customField: 'value',
+    nested: {
+      property: 123
+    }
+  };
+  
+  setVisitorMetadata(metadata);
+}
+```
+
+## Related Hooks
+
+<CardGroup cols={2}>
+  <Card title="useSendMessage" icon="paper-plane" href="/api/hooks/use-send-message">
+    Send messages as visitor
+  </Card>
+  
+  <Card title="useConversation" icon="message" href="/api/hooks/use-conversation">
+    Load visitor's conversations
+  </Card>
+</CardGroup>

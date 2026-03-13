@@ -1,0 +1,495 @@
+---
+title: Installation
+description: Install and configure the Cossistant SDK in your React or Next.js application
+---
+
+This guide covers installing Cossistant, configuring your environment, and understanding the different package options available.
+
+## Package Overview
+
+Cossistant provides two npm packages optimized for different React frameworks:
+
+<CardGroup cols={2}>
+  <Card title="@cossistant/react" icon="react">
+    **Universal React SDK**
+    
+    Use for any React 18+ application including Vite, Create React App, Remix, or custom setups.
+    
+    ```bash
+    npm install @cossistant/react
+    ```
+  </Card>
+  
+  <Card title="@cossistant/next" icon="n">
+    **Next.js Optimized**
+    
+    Thin wrapper around `@cossistant/react` with Next.js-specific defaults and optimizations.
+    
+    ```bash
+    npm install @cossistant/next
+    ```
+  </Card>
+</CardGroup>
+
+<Note>
+  Both packages share the same API and features. `@cossistant/next` re-exports everything from `@cossistant/react` with no additional dependencies.
+</Note>
+
+## Installation
+
+<Tabs>
+  <Tab title="React (Vite, CRA, etc.)">
+    Install the universal React SDK:
+
+    <CodeGroup>
+      ```bash npm
+      npm install @cossistant/react
+      ```
+
+      ```bash yarn
+      yarn add @cossistant/react
+      ```
+
+      ```bash pnpm
+      pnpm add @cossistant/react
+      ```
+
+      ```bash bun
+      bun add @cossistant/react
+      ```
+    </CodeGroup>
+
+    ### Requirements
+
+    - **React:** 18.0.0 or higher
+    - **Node.js:** 18.0.0 or higher
+    - **TypeScript:** 5.0+ (optional but recommended)
+  </Tab>
+
+  <Tab title="Next.js">
+    Install the Next.js-optimized package:
+
+    <CodeGroup>
+      ```bash npm
+      npm install @cossistant/next
+      ```
+
+      ```bash yarn
+      yarn add @cossistant/next
+      ```
+
+      ```bash pnpm
+      pnpm add @cossistant/next
+      ```
+
+      ```bash bun
+      bun add @cossistant/next
+      ```
+    </CodeGroup>
+
+    ### Requirements
+
+    - **Next.js:** 13.5.2 or higher (supports App Router and Pages Router)
+    - **React:** 18.0.0 or higher
+    - **Node.js:** 18.0.0 or higher
+    - **TypeScript:** 5.0+ (optional but recommended)
+  </Tab>
+</Tabs>
+
+## Environment Configuration
+
+Cossistant requires a public API key to authenticate requests. The SDK automatically detects the correct environment variable based on your build tool:
+
+<CodeGroup>
+  ```bash .env.local (Next.js)
+  NEXT_PUBLIC_COSSISTANT_API_KEY=pk_live_1234567890abcdef
+  ```
+
+  ```bash .env (Vite)
+  VITE_COSSISTANT_API_KEY=pk_live_1234567890abcdef
+  ```
+
+  ```bash .env (Create React App)
+  REACT_APP_COSSISTANT_API_KEY=pk_live_1234567890abcdef
+  ```
+
+  ```bash .env (Other)
+  COSSISTANT_API_KEY=pk_live_1234567890abcdef
+  ```
+</CodeGroup>
+
+<Warning>
+  Environment variables with the `NEXT_PUBLIC_`, `VITE_`, or `REACT_APP_` prefix are exposed to the browser. This is expected for Cossistant's public API key.
+  
+  **Never** add your secret API key to client-side code or environment variables.
+</Warning>
+
+### Getting Your API Key
+
+1. Sign up for a free account at [cossistant.com](https://cossistant.com)
+2. Navigate to **Settings** → **API Keys** in the dashboard
+3. Copy your **Public API Key** (starts with `pk_`)
+4. Add it to your `.env` file using the correct variable name for your framework
+
+<Tip>
+  Use different API keys for development and production environments. Create separate keys in the dashboard for each environment.
+</Tip>
+
+## CSS Setup
+
+Cossistant provides two CSS options depending on your setup:
+
+### Option 1: Pre-Compiled CSS (Recommended)
+
+Import the pre-compiled CSS file that works in any React application without requiring Tailwind:
+
+```tsx App.tsx
+import { SupportProvider, Support } from "@cossistant/react";
+import "@cossistant/react/styles.css";
+
+export function App() {
+  return (
+    <SupportProvider>
+      <YourApp />
+      <Support />
+    </SupportProvider>
+  );
+}
+```
+
+**Benefits:**
+- No Tailwind CSS dependency required
+- Smaller bundle size
+- Works with any styling solution
+- Fully styled and ready to use
+
+### Option 2: Tailwind v4 Source (Advanced)
+
+If you're using Tailwind CSS v4 and want full theme customization, import the source file:
+
+```tsx App.tsx
+import { SupportProvider, Support } from "@cossistant/react";
+import "@cossistant/react/support.css";
+
+export function App() {
+  return (
+    <SupportProvider>
+      <YourApp />
+      <Support />
+    </SupportProvider>
+  );
+}
+```
+
+**Benefits:**
+- Full access to Tailwind theme variables
+- Customize colors, spacing, and typography
+- Integrates with your existing Tailwind config
+
+<Warning>
+  The `support.css` import requires **Tailwind CSS v4**. If you're using Tailwind v3 or no Tailwind at all, use `styles.css` instead.
+</Warning>
+
+## Basic Setup
+
+Once installed, wrap your application with `SupportProvider` and render the `Support` component:
+
+<Tabs>
+  <Tab title="Next.js App Router">
+    ```tsx app/layout.tsx
+    import { SupportProvider } from "@cossistant/next";
+    import type { Metadata } from "next";
+    import "./globals.css";
+
+    export const metadata: Metadata = {
+      title: "My App",
+      description: "My awesome application",
+    };
+
+    export default function RootLayout({
+      children,
+    }: {
+      children: React.ReactNode;
+    }) {
+      return (
+        <html lang="en">
+          <body>
+            <SupportProvider>{children}</SupportProvider>
+          </body>
+        </html>
+      );
+    }
+    ```
+
+    ```tsx app/page.tsx
+    import { Support } from "@cossistant/next";
+    import "@cossistant/next/styles.css";
+
+    export default function HomePage() {
+      return (
+        <main>
+          <h1>Welcome</h1>
+          <Support />
+        </main>
+      );
+    }
+    ```
+  </Tab>
+
+  <Tab title="Next.js Pages Router">
+    ```tsx pages/_app.tsx
+    import { SupportProvider } from "@cossistant/next";
+    import type { AppProps } from "next/app";
+    import "../styles/globals.css";
+
+    export default function App({ Component, pageProps }: AppProps) {
+      return (
+        <SupportProvider>
+          <Component {...pageProps} />
+        </SupportProvider>
+      );
+    }
+    ```
+
+    ```tsx pages/index.tsx
+    import { Support } from "@cossistant/next";
+    import "@cossistant/next/styles.css";
+
+    export default function HomePage() {
+      return (
+        <main>
+          <h1>Welcome</h1>
+          <Support />
+        </main>
+      );
+    }
+    ```
+  </Tab>
+
+  <Tab title="Vite">
+    ```tsx src/App.tsx
+    import { SupportProvider, Support } from "@cossistant/react";
+    import "@cossistant/react/styles.css";
+    import "./App.css";
+
+    function App() {
+      return (
+        <SupportProvider>
+          <main>
+            <h1>Welcome</h1>
+            <YourApp />
+          </main>
+          <Support />
+        </SupportProvider>
+      );
+    }
+
+    export default App;
+    ```
+  </Tab>
+
+  <Tab title="Create React App">
+    ```tsx src/App.tsx
+    import { SupportProvider, Support } from "@cossistant/react";
+    import "@cossistant/react/styles.css";
+    import "./App.css";
+
+    function App() {
+      return (
+        <SupportProvider>
+          <div className="App">
+            <header>
+              <h1>Welcome</h1>
+            </header>
+            <main>
+              <YourApp />
+            </main>
+          </div>
+          <Support />
+        </SupportProvider>
+      );
+    }
+
+    export default App;
+    ```
+  </Tab>
+</Tabs>
+
+## Provider Configuration
+
+The `SupportProvider` accepts several optional props for advanced configuration:
+
+```tsx
+<SupportProvider
+  publicKey="pk_live_..."       // Override auto-detected API key
+  apiUrl="https://api.custom.com/v1"  // Custom API endpoint
+  wsUrl="wss://api.custom.com/ws"     // Custom WebSocket endpoint
+  autoConnect={true}             // Auto-connect to WebSocket (default: true)
+  defaultOpen={false}            // Open widget on mount (default: false)
+  size="normal"                  // Widget size: "normal" | "larger"
+  onWsConnect={() => console.log("Connected")}
+  onWsDisconnect={() => console.log("Disconnected")}
+  onWsError={(error) => console.error("WS Error:", error)}
+>
+  {children}
+</SupportProvider>
+```
+
+<Note>
+  Most apps only need the default configuration. Only customize these props if you have specific requirements like self-hosting or custom endpoints.
+</Note>
+
+## TypeScript Support
+
+Cossistant is built with TypeScript and includes comprehensive type definitions. No additional `@types` packages are required.
+
+### Type Imports
+
+Import types directly from the package:
+
+```tsx
+import type {
+  SupportProps,
+  SupportHandle,
+  DefaultMessage,
+  SupportEventCallbacks,
+} from "@cossistant/react";
+```
+
+### Peer Dependencies
+
+Cossistant requires React types as a peer dependency. If you don't have them installed:
+
+```bash
+npm install --save-dev @types/react @types/react-dom
+```
+
+## Verification
+
+After installation, verify everything is working:
+
+<Steps>
+  <Step title="Start your dev server">
+    ```bash
+    npm run dev
+    ```
+  </Step>
+
+  <Step title="Check for the support button">
+    You should see a floating chat button in the bottom corner of your page.
+  </Step>
+
+  <Step title="Click the button">
+    The support widget should open with a welcome message.
+  </Step>
+
+  <Step title="Check the browser console">
+    Look for any errors or warnings. A successful connection will log:
+    ```
+    [Cossistant] Connected to WebSocket
+    ```
+  </Step>
+</Steps>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Module not found: @cossistant/react">
+    **Solution:** Ensure you've run the install command and restarted your development server.
+
+    ```bash
+    npm install @cossistant/react
+    npm run dev
+    ```
+  </Accordion>
+
+  <Accordion title="API key not detected">
+    **Solution:** Check that:
+    1. You're using the correct environment variable name for your framework
+    2. You've created a `.env` file in your project root
+    3. You've restarted your dev server after adding the `.env` file
+    4. The variable name includes the correct prefix (`NEXT_PUBLIC_`, `VITE_`, etc.)
+  </Accordion>
+
+  <Accordion title="Styles not loading">
+    **Solution:** Ensure you've imported the CSS file:
+
+    ```tsx
+    import "@cossistant/react/styles.css";
+    ```
+
+    Place this import in the same file where you render `<Support />` or in your root layout.
+  </Accordion>
+
+  <Accordion title="TypeScript errors with React types">
+    **Solution:** Install React type definitions:
+
+    ```bash
+    npm install --save-dev @types/react @types/react-dom
+    ```
+
+    Ensure your `tsconfig.json` includes:
+
+    ```json
+    {
+      "compilerOptions": {
+        "jsx": "react-jsx",
+        "moduleResolution": "bundler"
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="WebSocket connection fails">
+    **Solution:** This usually indicates:
+    - Invalid API key
+    - Network/firewall blocking WebSocket connections
+    - Ad blockers interfering with connections
+
+    Check the browser console for detailed error messages.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that Cossistant is installed, explore these guides:
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Follow our quickstart guide to add the widget and test your first conversation
+  </Card>
+  
+  <Card title="Identify Users" icon="user" href="/concepts/visitor-identification">
+    Connect logged-in users to their support conversations
+  </Card>
+  
+  <Card title="React SDK" icon="react" href="/sdk/react/support-widget">
+    Explore the complete Support widget API and customization options
+  </Card>
+  
+  <Card title="Hooks Reference" icon="code" href="/sdk/react/hooks">
+    Build custom UI with headless hooks and primitives
+  </Card>
+</CardGroup>
+
+## Package Details
+
+### Bundle Size
+
+- **@cossistant/react:** ~45KB minified + gzipped (including styles)
+- **@cossistant/next:** Same as `@cossistant/react` (thin wrapper, no extra code)
+
+### Browser Support
+
+Cossistant supports all modern browsers:
+
+- Chrome 90+
+- Firefox 88+
+- Safari 14+
+- Edge 90+
+
+### License
+
+Cossistant is licensed under **AGPL-3.0** for non-commercial use. For commercial deployments, contact [anthony@cossistant.com](mailto:anthony@cossistant.com) for a commercial license.
+
+See the [LICENSE](https://github.com/cossistant/cossistant/blob/main/LICENSE) file for details.

@@ -1,0 +1,618 @@
+---
+title: Webhook Integration
+description: Configure and process webhooks from Resend to handle email events and inbound replies
+---
+
+Cossistant uses webhooks from Resend to receive real-time notifications about email delivery status, bounces, complaints, and inbound email replies. This guide covers webhook setup, event processing, and best practices.
+
+## Overview
+
+Webhooks are HTTP callbacks that Resend sends to your application when specific email events occur. Cossistant processes these events to:
+
+- Track email delivery status
+- Handle bounces and protect sender reputation
+- Process inbound email replies as conversation messages
+- Update email suppression lists automatically
+
+## Webhook Endpoint
+
+The webhook endpoint is located at:
+
+```
+POST /resend/webhooks
+```
+
+### Implementation
+
+The webhook handler is implemented in `apps/api/src/resend/index.ts:76`
+
+<CodeGroup>
+```typescript Webhook Handler
+resendRouters.post("/webhooks", async (c: Context) => {
+  try {
+    // Get raw body as string for webhook verification
+    const payload = await c.req.text();
+
+    // Convert Hono headers to Record<string, string>
+    const headers: Record<string, string> = {};
+    c.req.raw.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+
+    // Verify webhook signature using Svix
+    const result = resend.webhooks.verify({
+      payload,
+      headers: {
+        id: c.req.raw.headers.get("svix-id") ?? "",
+        timestamp: c.req.raw.headers.get("svix-timestamp") ?? "",
+        signature: c.req.raw.headers.get("svix-signature") ?? "",
+      },
+      webhookSecret: env.RESEND_WEBHOOK_SECRET,
+    }) as ResendWebhookEvent;
+
+    // Process the verified event
+    await processWebhookEvent(result);
+
+    return c.json({ received: true }, 200);
+  } catch (error) {
+    console.error("[Resend Webhook] Error processing webhook:", error);
+    return c.json({ error: "Internal server error" }, 400);
+  }
+});
+```
+
+```typescript Event Type Definition
+type ResendWebhookEvent = {
+  type:
+    | "email.sent"
+    | "email.delivered"
+    | "email.bounced"
+    | "email.complained"
+    | "email.failed"
+    | "email.opened"
+    | "email.clicked"
+    | "email.received";
+  created_at: string;
+  data: {
+    email_id: string;
+    from: string;
+    to: string[];
+    subject: string;
+    message_id?: string;
+    bounce?: {
+      type: string;
+      subType?: string;
+      message?: string;
+    };
+    failed?: {
+      reason: string;
+    };
+  };
+};
+```
+</CodeGroup>
+
+## Webhook Security
+
+<Warning>
+Always verify webhook signatures before processing events. This prevents unauthorized requests from malicious actors.
+</Warning>
+
+### Signature Verification
+
+Cossistant uses Svix (built into Resend) to verify webhook authenticity:
+
+<Steps>
+  <Step title="Extract Headers">
+    The handler extracts three Svix headers from the request:
+    - `svix-id`: Unique identifier for the webhook attempt
+    - `svix-timestamp`: Timestamp when the webhook was sent
+    - `svix-signature`: HMAC signature of the payload
+  </Step>
+
+  <Step title="Verify Signature">
+    The `resend.webhooks.verify()` method validates the signature using your webhook secret:
+    ```typescript
+    const result = resend.webhooks.verify({
+      payload,
+      headers: { id, timestamp, signature },
+      webhookSecret: env.RESEND_WEBHOOK_SECRET,
+    });
+    ```
+  </Step>
+
+  <Step title="Handle Invalid Signatures">
+    If verification fails, the method throws an error and the handler returns a 400 response. The webhook will be retried by Resend.
+  </Step>
+</Steps>
+
+### Configuration
+
+Set the webhook secret in your environment variables:
+
+```bash .env
+RESEND_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+<Info>
+You can find your webhook secret in the Resend dashboard under **Webhooks → Your Webhook → Signing Secret**.
+</Info>
+
+## Event Processing
+
+Cossistant processes different event types to maintain email reputation and handle inbound messages.
+
+### Email Bounced
+
+When an email bounces, Cossistant records the bounce and may suppress future sends:
+
+<CodeGroup>
+```typescript Bounce Handler
+case "email.bounced":
+  if (data.bounce) {
+    await recordEmailBounce(db, {
+      email: recipientEmail,
+      organizationId,
+      bounceType: data.bounce.type,
+      bounceSubType: data.bounce.subType,
+      bounceMessage: data.bounce.message,
+      eventId: data.email_id,
+    });
+    logEmailBounce({
+      email: recipientEmail,
+      organizationId,
+      bounceType: data.bounce.type,
+    });
+  }
+  break;
+```
+
+```typescript Bounce Recording
+export async function recordEmailBounce(
+  db: Database,
+  params: {
+    email: string;
+    organizationId: string;
+    bounceType: string;
+    bounceSubType?: string;
+    bounceMessage?: string;
+    eventId: string;
+  }
+) {
+  const shouldSuppress =
+    params.bounceType === "Permanent" || 
+    params.bounceSubType === "Suppressed";
+
+  await db.insert(emailBounceStatus)
+    .values({
+      email: params.email,
+      organizationId: params.organizationId,
+      bounceType: params.bounceType,
+      bouncedAt: new Date(),
+      suppressed: shouldSuppress,
+      suppressedReason: shouldSuppress ? "bounced" : null,
+      // ... other fields
+    })
+    .onConflictDoUpdate({ /* ... */ });
+}
+```
+</CodeGroup>
+
+**Bounce Types:**
+
+| Bounce Type | Suppressed | Description |
+|-------------|------------|-------------|
+| Permanent | Yes | Email address doesn't exist or is invalid |
+| Transient | No | Temporary issue (mailbox full, server down) |
+| Suppressed | Yes | Previously bounced or on suppression list |
+
+### Email Complained
+
+Spam complaints immediately suppress all future emails:
+
+```typescript
+case "email.complained":
+  await recordEmailComplaint(db, {
+    email: recipientEmail,
+    organizationId,
+    eventId: data.email_id,
+  });
+  logEmailComplaint({
+    email: recipientEmail,
+    organizationId,
+  });
+  break;
+```
+
+<Warning>
+Complaints are serious and always result in permanent suppression. This protects your domain reputation and prevents being marked as a spammer.
+</Warning>
+
+### Email Failed
+
+Delivery failures are tracked, and repeated failures trigger suppression:
+
+```typescript
+case "email.failed":
+  if (data.failed) {
+    await recordEmailFailure(db, {
+      email: recipientEmail,
+      organizationId,
+      failureReason: data.failed.reason,
+      eventId: data.email_id,
+    });
+  }
+  break;
+```
+
+**Failure Threshold:**
+- After **3 consecutive failures**, the email is automatically suppressed
+- Failure count resets on successful delivery
+- Common failure reasons: rate limiting, temporary server errors
+
+### Email Received (Inbound)
+
+Inbound emails are processed as conversation messages:
+
+<Steps>
+  <Step title="Parse Reply Address">
+    Extract the conversation ID from the inbound email address:
+    ```typescript
+    const parsed = parseInboundReplyAddress(inboundRecipient);
+    // Result: { conversationId: "01ABC...", environment: "production" }
+    ```
+  </Step>
+
+  <Step title="Verify Environment">
+    Ensure the email matches the current runtime environment:
+    ```typescript
+    const isProdEnv = env.NODE_ENV === "production";
+    const isInboundProd = parsed.environment === "production";
+    
+    if (isProdEnv !== isInboundProd) {
+      // Skip - environment mismatch
+      return;
+    }
+    ```
+  </Step>
+
+  <Step title="Fetch Email Content">
+    Retrieve the full email body using Resend's Receiving API:
+    ```typescript
+    const receivedEmailResult = await resend.emails.receiving.get(
+      data.email_id
+    );
+    const receivedEmail = receivedEmailResult.data;
+    ```
+  </Step>
+
+  <Step title="Extract Reply Text">
+    Parse the email body to extract only the new reply (removing quoted text):
+    ```typescript
+    const messageText = sanitizeIncomingEmailBody({
+      textBody: receivedEmail.text,
+      htmlBody: receivedEmail.html,
+    });
+    ```
+  </Step>
+
+  <Step title="Create Timeline Message">
+    Add the email reply as a new message in the conversation timeline:
+    ```typescript
+    const { item, actor } = await createMessageTimelineItem({
+      db,
+      organizationId,
+      websiteId,
+      conversationId,
+      text: messageText,
+      extraParts: [{ type: "metadata", source: "email" }],
+      userId: timelineUserId,
+      visitorId: timelineVisitorId,
+    });
+    ```
+  </Step>
+
+  <Step title="Trigger Notification Workflow">
+    Notify team members of the new inbound message:
+    ```typescript
+    await triggerMessageNotificationWorkflow({
+      conversationId,
+      messageId: item.id,
+      websiteId,
+      organizationId,
+      actor,
+    });
+    ```
+  </Step>
+</Steps>
+
+## Email Reply Parsing
+
+Cossistant uses the `email-reply-parser` library to extract only the new content from email replies:
+
+<CodeGroup>
+```typescript Reply Parsing
+function sanitizeIncomingEmailBody({
+  textBody,
+  htmlBody,
+}: {
+  textBody?: string | null;
+  htmlBody?: string | null;
+}): string | null {
+  const parser = new EmailReplyParser();
+
+  // Try text body first
+  const normalizedText = textBody?.trim() ?? "";
+  if (normalizedText) {
+    const parsed = parser.parseReply(normalizedText).trim();
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  // Fall back to HTML body
+  const normalizedHtml = htmlBody?.trim() ?? "";
+  if (!normalizedHtml) {
+    return null;
+  }
+
+  // Strip HTML tags and parse
+  const htmlAsText = normalizedHtml
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return parser.parseReply(htmlAsText).trim() || null;
+}
+```
+</CodeGroup>
+
+This ensures that:
+- Previous conversation history is removed
+- Email signatures are stripped
+- Only the new reply content is preserved
+- HTML emails are converted to clean text
+
+## Organization Lookup
+
+Since webhooks don't include organization context, Cossistant looks up the organization from the recipient email:
+
+```typescript
+async function getOrganizationIdFromEmail(
+  email: string
+): Promise<string | null> {
+  // Check if email belongs to a user (team member)
+  const userResult = await db
+    .select({ userId: user.id })
+    .from(user)
+    .where(eq(user.email, email))
+    .limit(1);
+
+  if (userResult[0]) {
+    const memberResult = await db
+      .select({ organizationId: member.organizationId })
+      .from(member)
+      .where(eq(member.userId, userResult[0].userId))
+      .limit(1);
+    
+    if (memberResult[0]?.organizationId) {
+      return memberResult[0].organizationId;
+    }
+  }
+
+  // Check if email belongs to a contact (visitor)
+  const contactResult = await db
+    .select({ organizationId: contact.organizationId })
+    .from(contact)
+    .where(eq(contact.email, email))
+    .limit(1);
+
+  return contactResult[0]?.organizationId ?? null;
+}
+```
+
+<Info>
+For better performance in high-volume scenarios, consider including organization ID in email tags and reading from the webhook event data.
+</Info>
+
+## Testing Webhooks
+
+### Local Development
+
+To test webhooks locally, use a tunneling service like ngrok:
+
+<Steps>
+  <Step title="Start Your Local Server">
+    ```bash
+    pnpm dev
+    ```
+  </Step>
+
+  <Step title="Create Tunnel">
+    ```bash
+    ngrok http 3000
+    ```
+  </Step>
+
+  <Step title="Configure Resend">
+    In the Resend dashboard, add your ngrok URL:
+    ```
+    https://abc123.ngrok.io/resend/webhooks
+    ```
+  </Step>
+
+  <Step title="Update Environment">
+    Use the development webhook secret:
+    ```bash
+    RESEND_WEBHOOK_SECRET=whsec_dev_xxxxxxxxxxxxx
+    ```
+  </Step>
+</Steps>
+
+### Manual Testing
+
+You can manually trigger webhook events using the Resend dashboard:
+
+1. Go to **Webhooks** → Your webhook → **Test**
+2. Select an event type (e.g., `email.bounced`)
+3. Customize the payload if needed
+4. Click **Send test webhook**
+
+## Monitoring
+
+Cossistant logs all webhook events for monitoring and debugging:
+
+```typescript
+console.log("[Resend Webhook] Verified webhook:", result.type);
+
+// Bounce
+console.log(
+  `[Email Bounce] Recorded bounce for ${email} (type: ${bounceType}, suppressed: ${shouldSuppress})`
+);
+
+// Complaint
+console.log(
+  `[Email Complaint] Recorded complaint for ${email}, email suppressed`
+);
+
+// Failure
+console.log(
+  `[Email Failure] Recorded failure for ${email} (count: ${newCount}, suppressed: ${shouldSuppress})`
+);
+
+// Inbound email
+console.log(
+  `[Resend Webhook] Created timeline message from inbound email for conversation ${conversationId}`
+);
+```
+
+### Recommended Monitoring
+
+<AccordionGroup>
+  <Accordion title="Bounce Rate">
+    Monitor your bounce rate to identify deliverability issues:
+    - **Healthy**: < 2% bounce rate
+    - **Warning**: 2-5% bounce rate
+    - **Critical**: > 5% bounce rate
+  </Accordion>
+
+  <Accordion title="Complaint Rate">
+    Track spam complaints to protect sender reputation:
+    - **Healthy**: < 0.1% complaint rate
+    - **Warning**: 0.1-0.3% complaint rate
+    - **Critical**: > 0.3% complaint rate
+  </Accordion>
+
+  <Accordion title="Webhook Failures">
+    Monitor failed webhook deliveries in the Resend dashboard. Repeated failures may indicate:
+    - Incorrect webhook URL
+    - Server downtime
+    - Signature verification issues
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Return 200">
+    Return a 200 status code as soon as possible, even if event processing fails. This prevents Resend from retrying unnecessarily.
+
+    ```typescript
+    try {
+      await processWebhookEvent(result);
+    } catch (error) {
+      // Log error but still return 200
+      console.error("Failed to process webhook:", error);
+    }
+    return c.json({ received: true }, 200);
+    ```
+  </Accordion>
+
+  <Accordion title="Handle Retries Idempotently">
+    Resend may send the same webhook multiple times. Use `event_id` or `email_id` to deduplicate:
+
+    ```typescript
+    const existing = await db.query.webhookEvents.findFirst({
+      where: eq(webhookEvents.eventId, data.email_id),
+    });
+
+    if (existing) {
+      return; // Already processed
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Process Asynchronously">
+    For heavy processing, acknowledge the webhook immediately and process asynchronously:
+
+    ```typescript
+    // Acknowledge immediately
+    const response = c.json({ received: true }, 200);
+
+    // Process in background
+    processWebhookEvent(result).catch(console.error);
+
+    return response;
+    ```
+  </Accordion>
+
+  <Accordion title="Monitor Suppression Lists">
+    Regularly review your suppression list to:
+    - Remove test emails
+    - Investigate high suppression rates
+    - Manually unsuppress emails when appropriate
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Webhooks Not Received">
+    **Possible causes:**
+    - Incorrect webhook URL in Resend dashboard
+    - Firewall blocking Resend's IP addresses
+    - Server not responding (check uptime)
+
+    **Solution:**
+    - Verify webhook URL is publicly accessible
+    - Check Resend dashboard for delivery attempts
+    - Review server logs for errors
+  </Accordion>
+
+  <Accordion title="Signature Verification Fails">
+    **Possible causes:**
+    - Wrong webhook secret in environment variables
+    - Request body modified before verification
+    - Clock skew between servers
+
+    **Solution:**
+    - Verify `RESEND_WEBHOOK_SECRET` matches Resend dashboard
+    - Ensure raw request body is used for verification
+    - Check server time synchronization
+  </Accordion>
+
+  <Accordion title="Inbound Emails Not Creating Messages">
+    **Possible causes:**
+    - Environment mismatch (test email to production)
+    - Invalid conversation ID in reply-to address
+    - Email body parsing failed
+
+    **Solution:**
+    - Check logs for environment mismatch warnings
+    - Verify reply-to address format
+    - Inspect raw email content in Resend dashboard
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Email Integration" icon="envelope" href="/integrations/email">
+    Learn how to send emails with threading support
+  </Card>
+  <Card title="Integrations Overview" icon="grid" href="/integrations/overview">
+    Explore all available integrations
+  </Card>
+</CardGroup>

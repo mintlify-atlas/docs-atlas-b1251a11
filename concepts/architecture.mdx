@@ -1,0 +1,313 @@
+---
+title: "Architecture Overview"
+description: "Understanding Cossistant's technical architecture and system design"
+---
+
+Cossistant is built on a modern, event-driven architecture designed for real-time customer support automation. The system consists of three primary layers: the API server, the AI pipeline, and the real-time messaging layer.
+
+## System Architecture
+
+The platform follows a monorepo structure with clear separation of concerns:
+
+```
+apps/
+├── api/          # Core API server (Hono + Bun)
+├── web/          # Dashboard application
+└── widget/       # Customer-facing widget
+
+packages/
+├── react/        # Shared React components
+├── types/        # Type definitions
+└── ui/           # UI component library
+```
+
+## Core Components
+
+### API Server
+
+The API server is built with [Hono](https://hono.dev) and runs on [Bun](https://bun.sh), providing exceptional performance for both HTTP and WebSocket connections.
+
+```typescript apps/api/src/index.ts
+const app = new OpenAPIHono<{
+  Variables: {
+    user: typeof auth.$Infer.Session.user | null;
+    session: typeof auth.$Infer.Session.session | null;
+    realtime: typeof realtime;
+  };
+}>();
+
+// Health check endpoint
+app.get("/health", async (c) => {
+  const health = await checkHealth();
+  return c.json({ status: "healthy" }, health ? 200 : 503);
+});
+
+// WebSocket endpoint for real-time communication
+app.use("/ws", websocketRateLimiter);
+app.get("/ws", upgradedWebsocket);
+```
+
+### Multi-Protocol API Support
+
+Cossistant exposes three distinct API layers:
+
+<CardGroup cols={3}>
+  <Card title="REST API" icon="api">
+    OpenAPI-compliant REST endpoints at `/v1/*` for external integrations
+  </Card>
+  <Card title="tRPC API" icon="bolt">
+    Type-safe tRPC endpoints at `/trpc/*` for internal dashboard communication
+  </Card>
+  <Card title="WebSocket API" icon="plug">
+    Real-time bidirectional communication at `/ws` for live updates
+  </Card>
+</CardGroup>
+
+```typescript apps/api/src/index.ts
+// REST API routes with default rate limiting
+app.use("/v1/*", defaultRateLimiter);
+app.route("/v1", routers);
+
+// TRPC routes for dashboard
+app.use(
+  "/trpc/*",
+  trpcServer({
+    router: origamiTRPCRouter,
+    createContext: createTRPCContext,
+  })
+);
+
+// WebSocket endpoint
+app.get("/ws", upgradedWebsocket);
+```
+
+## Data Layer
+
+### Database Schema
+
+Cossistant uses PostgreSQL with Drizzle ORM for type-safe database operations. The core schema includes:
+
+<Accordion title="Conversation Schema">
+  The conversation table tracks all customer interactions with comprehensive metadata:
+
+  ```typescript apps/api/src/db/schema/conversation.ts
+  export const conversation = pgTable("conversation", {
+    id: nanoidPrimaryKey("id"),
+    status: conversationStatusEnum("status")
+      .default(ConversationStatus.OPEN)
+      .notNull(),
+    priority: conversationPriorityEnum("priority")
+      .default(ConversationPriority.NORMAL)
+      .notNull(),
+    organizationId: ulidReference("organization_id"),
+    visitorId: ulidReference("visitor_id"),
+    websiteId: ulidReference("website_id"),
+    sentiment: conversationSentimentEnum("sentiment"),
+    sentimentConfidence: real("sentiment_confidence"),
+    title: text("title"),
+    escalatedAt: timestamp("escalated_at"),
+    escalationReason: text("escalation_reason"),
+    aiPausedUntil: timestamp("ai_paused_until"),
+    // AI processing cursor for ordered message handling
+    aiAgentLastProcessedMessageId: ulidNullableReference(
+      "ai_agent_last_processed_message_id"
+    ),
+  });
+  ```
+</Accordion>
+
+<Accordion title="Timeline Schema">
+  All conversation events (messages, actions, notes) are stored in a unified timeline:
+
+  ```typescript apps/api/src/db/schema/conversation.ts
+  export const conversationTimelineItem = pgTable(
+    "conversation_timeline_item",
+    {
+      id: ulidPrimaryKey("id"),
+      conversationId: nanoidReference("conversation_id"),
+      visibility: itemVisibilityEnum("visibility")
+        .default(TimelineItemVisibility.PUBLIC)
+        .notNull(),
+      type: conversationTimelineTypeEnum("type").notNull(),
+      text: text("text"),
+      parts: jsonb("parts").default(sql`'[]'::jsonb`).notNull(),
+      userId: ulidNullableReference("user_id"),
+      visitorId: ulidNullableReference("visitor_id"),
+      aiAgentId: ulidNullableReference("ai_agent_id"),
+      createdAt: timestamp("created_at"),
+    }
+  );
+  ```
+</Accordion>
+
+<Accordion title="AI Agent Schema">
+  AI agents are configurable entities with behavior settings and training status:
+
+  ```typescript apps/api/src/db/schema/ai-agent.ts
+  export const aiAgent = pgTable("ai_agent", {
+    id: ulidPrimaryKey("id"),
+    name: text("name").notNull(),
+    basePrompt: text("base_prompt").notNull(),
+    model: text("model").notNull(),
+    temperature: doublePrecision("temperature"),
+    maxOutputTokens: integer("max_tokens"),
+    organizationId: ulidReference("organization_id"),
+    websiteId: ulidReference("website_id"),
+    isActive: boolean("is_active").default(true).notNull(),
+    // Training status tracking
+    trainingStatus: text("training_status").default("idle").notNull(),
+    trainingProgress: integer("training_progress").default(0).notNull(),
+    // Behavior settings control AI response logic
+    behaviorSettings: jsonb("behavior_settings").$type<AiAgentBehaviorSettings>(),
+  });
+  ```
+</Accordion>
+
+## Security & Rate Limiting
+
+Cossistant implements multi-tier rate limiting based on endpoint sensitivity:
+
+```typescript apps/api/src/index.ts
+// Apply rate limiting before session handling
+app.use("/trpc/*", trpcRateLimiter);
+
+// Auth routes with strict rate limiting
+app.use("/api/auth/*", authRateLimiter);
+
+// REST API routes with default rate limiting
+app.use("/v1/*", defaultRateLimiter);
+
+// WebSocket with connection-specific limits
+app.use("/ws", websocketRateLimiter);
+```
+
+<Note>
+  Rate limits are configurable per environment and automatically adjust based on authentication context (API key vs. session).
+</Note>
+
+## CORS Configuration
+
+The API uses tiered CORS policies:
+
+- **Trusted domains** (dashboard, auth): Credentials enabled, restricted origins
+- **Public API** (`/v1/*`): Open access, no credentials
+
+```typescript apps/api/src/index.ts
+const acceptedOrigins = [
+  "http://localhost:3000",
+  "https://cossistant.com",
+  "https://www.cossistant.com",
+];
+
+// CORS for auth and TRPC (trusted domains only)
+app.use(
+  "/api/auth/*",
+  cors({
+    origin: acceptedOrigins,
+    maxAge: 86_400,
+    credentials: true,
+  })
+);
+
+// CORS for V1 API (public access)
+app.use(
+  "/v1/*",
+  cors({
+    origin: "*",
+    maxAge: 86_400,
+    credentials: false,
+  })
+);
+```
+
+## Authentication
+
+<CardGroup cols={2}>
+  <Card title="API Key Authentication" icon="key">
+    Public/private key pairs for external integrations with origin validation
+  </Card>
+  <Card title="Session-based Auth" icon="user">
+    Cookie-based sessions for dashboard users via Better Auth
+  </Card>
+</CardGroup>
+
+## Performance Optimizations
+
+<AccordionGroup>
+  <Accordion title="Connection Registry with Indexed Lookups">
+    WebSocket connections are indexed by `websiteId` and `visitorId` for O(1) event dispatch:
+
+    ```typescript apps/api/src/ws/connection-registry.ts
+    // Primary connection store
+    export const localConnections = new Map<string, LocalConnectionRecord>();
+
+    // Index: websiteId -> Set of connectionIds
+    const connectionsByWebsiteId = new Map<string, Set<string>>();
+
+    // Index: visitorId -> Set of connectionIds
+    const connectionsByVisitorId = new Map<string, Set<string>>();
+    ```
+  </Accordion>
+
+  <Accordion title="Database Query Optimization">
+    Strategic composite indexes optimize common query patterns:
+
+    ```typescript apps/api/src/db/schema/conversation.ts
+    index("conversation_org_website_updated_idx").on(
+      table.organizationId,
+      table.websiteId,
+      table.updatedAt,
+      table.id
+    ),
+    index("conversation_timeline_item_conv_created_idx").on(
+      table.conversationId,
+      table.createdAt,
+      table.id
+    ),
+    ```
+  </Accordion>
+
+  <Accordion title="Event Batching">
+    Real-time events are batched and dispatched efficiently using pub/sub patterns with Redis for multi-server coordination.
+  </Accordion>
+</AccordionGroup>
+
+## Observability
+
+Cossistant includes comprehensive logging and monitoring:
+
+```typescript apps/api/src/index.ts
+// Logger middleware
+app.use(logger());
+
+// Attach realtime emitter to context
+app.use("*", async (c, next) => {
+  c.set("realtime", realtime);
+  await next();
+});
+
+// Health check with database validation
+app.get("/health", async (c) => {
+  try {
+    const health = await checkHealth();
+    return c.json({ status: "healthy" }, health ? 200 : 503);
+  } catch (_error) {
+    return c.json(
+      { status: "unhealthy", error: "Database connection failed" },
+      503
+    );
+  }
+});
+```
+
+## Deployment Architecture
+
+<Info>
+  Cossistant is designed to run on modern edge platforms like Cloudflare Workers, Vercel, or any Bun-compatible runtime. The WebSocket layer requires persistent connections and is typically deployed on long-running servers.
+</Info>
+
+<Card title="Next Steps" icon="arrow-right">
+  - [AI Agents](/concepts/ai-agents) - Learn how AI agents process conversations
+  - [Real-time Messaging](/concepts/real-time-messaging) - Explore the WebSocket implementation
+  - [Visitor Identification](/concepts/visitor-identification) - Understand visitor tracking
+</Card>

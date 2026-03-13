@@ -1,0 +1,597 @@
+---
+title: Code Style Guide
+description: Coding standards, formatting rules, and best practices for Cossistant
+icon: palette
+---
+
+Cossistant follows consistent coding standards across the entire codebase to ensure maintainability, readability, and quality. This guide covers our code style, linting, formatting, and best practices.
+
+## Code Formatting
+
+### Ultracite (Biome)
+
+Cossistant uses **[Ultracite](https://ultracite.dev/)** for code formatting and linting, which is built on [Biome](https://biomejs.dev/).
+
+<Note>
+  Ultracite is automatically run on all staged files via pre-commit hooks. You don't need to manually format code before committing.
+</Note>
+
+**Configuration (`biome.jsonc`):**
+
+```json
+{
+  "extends": ["ultracite"],
+  "formatter": {
+    "indentStyle": "tab"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  }
+}
+```
+
+### Key Formatting Rules
+
+<AccordionGroup>
+  <Accordion title="Indentation">
+    **Use tabs, not spaces**
+    
+    ```typescript
+    // ✅ Correct
+    function greet(name: string) {
+    	return `Hello, ${name}!`;
+    }
+    
+    // ❌ Incorrect (spaces)
+    function greet(name: string) {
+      return `Hello, ${name}!`;
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Quotes">
+    **Use double quotes for strings**
+    
+    ```typescript
+    // ✅ Correct
+    const message = "Hello, world!";
+    
+    // ❌ Incorrect
+    const message = 'Hello, world!';
+    ```
+  </Accordion>
+  
+  <Accordion title="Semicolons">
+    **Semicolons are required**
+    
+    ```typescript
+    // ✅ Correct
+    const name = "Cossistant";
+    console.log(name);
+    
+    // ❌ Incorrect
+    const name = "Cossistant"
+    console.log(name)
+    ```
+  </Accordion>
+  
+  <Accordion title="Line Length">
+    **Maximum 100 characters per line** (soft limit)
+    
+    Break long lines for readability:
+    
+    ```typescript
+    // ✅ Correct
+    const config = {
+    	apiKey: process.env.COSSISTANT_API_KEY,
+    	baseUrl: process.env.COSSISTANT_BASE_URL,
+    	timeout: 5000,
+    };
+    
+    // ❌ Incorrect
+    const config = { apiKey: process.env.COSSISTANT_API_KEY, baseUrl: process.env.COSSISTANT_BASE_URL, timeout: 5000 };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Running Formatting
+
+<CodeGroup>
+```bash Check Formatting
+# Check if code follows formatting rules
+bun run check
+```
+
+```bash Auto-Fix
+# Automatically format all files
+bun run fix
+```
+
+```bash Specific Files
+# Format specific files
+bunx ultracite fix src/components/Chat.tsx
+```
+</CodeGroup>
+
+## TypeScript Style
+
+### Type Definitions
+
+<AccordionGroup>
+  <Accordion title="Prefer Interfaces Over Types">
+    Use `interface` for object shapes, `type` for unions/intersections:
+    
+    ```typescript
+    // ✅ Correct
+    interface User {
+    	id: string;
+    	name: string;
+    	email: string;
+    }
+    
+    type Status = "online" | "offline" | "away";
+    
+    // ❌ Incorrect
+    type User = {
+    	id: string;
+    	name: string;
+    	email: string;
+    };
+    ```
+  </Accordion>
+  
+  <Accordion title="Explicit Return Types">
+    Always specify return types for exported functions:
+    
+    ```typescript
+    // ✅ Correct
+    export function formatMessage(message: string): string {
+    	return message.trim().toLowerCase();
+    }
+    
+    // ❌ Incorrect
+    export function formatMessage(message: string) {
+    	return message.trim().toLowerCase();
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Avoid Any">
+    Never use `any`. Use `unknown` or specific types:
+    
+    ```typescript
+    // ✅ Correct
+    function parseJSON(json: string): unknown {
+    	return JSON.parse(json);
+    }
+    
+    // ❌ Incorrect
+    function parseJSON(json: string): any {
+    	return JSON.parse(json);
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Strict Null Checks">
+    Always handle null/undefined explicitly:
+    
+    ```typescript
+    // ✅ Correct
+    function getUserName(user: User | null): string {
+    	return user?.name ?? "Anonymous";
+    }
+    
+    // ❌ Incorrect
+    function getUserName(user: User): string {
+    	return user.name; // Might be undefined
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Naming Conventions
+
+<CardGroup cols={2}>
+  <Card title="camelCase" icon="c">
+    Variables, functions, methods
+    ```typescript
+    const userId = "123";
+    function sendMessage() {}
+    ```
+  </Card>
+  
+  <Card title="PascalCase" icon="p">
+    Classes, interfaces, types, React components
+    ```typescript
+    class ChatService {}
+    interface Message {}
+    ```
+  </Card>
+  
+  <Card title="UPPER_SNAKE_CASE" icon="u">
+    Constants and environment variables
+    ```typescript
+    const MAX_RETRIES = 3;
+    const API_BASE_URL = "...";
+    ```
+  </Card>
+  
+  <Card title="kebab-case" icon="k">
+    File names (except components)
+    ```
+    use-chat.ts
+    api-client.ts
+    ```
+  </Card>
+</CardGroup>
+
+## React & Next.js Style
+
+### Component Structure
+
+```typescript
+// ✅ Correct structure
+import type { ReactNode } from "react";
+import { useState } from "react";
+
+// Types first
+interface ChatWidgetProps {
+	apiKey: string;
+	children?: ReactNode;
+}
+
+// Component
+export function ChatWidget({ apiKey, children }: ChatWidgetProps) {
+	const [isOpen, setIsOpen] = useState(false);
+
+	// Handlers
+	const handleToggle = () => {
+		setIsOpen(!isOpen);
+	};
+
+	// Render
+	return (
+		<div>
+			<button onClick={handleToggle}>Toggle</button>
+			{isOpen && children}
+		</div>
+	);
+}
+```
+
+### Hooks Best Practices
+
+<AccordionGroup>
+  <Accordion title="Custom Hook Naming">
+    Always prefix custom hooks with `use`:
+    
+    ```typescript
+    // ✅ Correct
+    export function useChatMessages() {
+    	// ...
+    }
+    
+    // ❌ Incorrect
+    export function getChatMessages() {
+    	// ...
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Dependency Arrays">
+    Always include all dependencies:
+    
+    ```typescript
+    // ✅ Correct
+    useEffect(() => {
+    	fetchMessages(conversationId);
+    }, [conversationId]);
+    
+    // ❌ Incorrect
+    useEffect(() => {
+    	fetchMessages(conversationId);
+    }, []); // Missing dependency
+    ```
+  </Accordion>
+  
+  <Accordion title="Return Types">
+    Explicitly type hook return values:
+    
+    ```typescript
+    // ✅ Correct
+    export function useChat(): {
+    	messages: Message[];
+    	sendMessage: (text: string) => void;
+    } {
+    	// ...
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Git Commit Conventions
+
+### Commit Message Format
+
+Cossistant uses [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+type(scope): description
+
+[optional body]
+
+[optional footer]
+```
+
+### Commit Types
+
+<Accordion title="Allowed Types">
+  - `feat` - New feature
+  - `fix` - Bug fix
+  - `docs` - Documentation changes
+  - `style` - Code style changes (formatting, etc.)
+  - `refactor` - Code refactoring
+  - `perf` - Performance improvements
+  - `chore` - Build process or auxiliary tool changes
+  - `ci` - CI/CD changes
+  - `ticket` - Ticket-related changes
+  - `revert` - Revert a previous commit
+</Accordion>
+
+### Examples
+
+<CodeGroup>
+```bash Feature
+feat(react): add typing indicator component
+
+Implements a new typing indicator that shows when other users are typing
+in the conversation.
+```
+
+```bash Bug Fix
+fix(api): resolve race condition in message sending
+
+Fixes #123
+```
+
+```bash Documentation
+docs(readme): update installation instructions
+```
+
+```bash Refactor
+refactor(core): simplify message state management
+
+Breaking Change: Updates the internal API for message state.
+Consumers should migrate to the new hooks.
+```
+</CodeGroup>
+
+## Linting Rules
+
+### Disabled Rules
+
+Some Biome rules are disabled in the project configuration:
+
+```json biome.jsonc
+{
+  "linter": {
+    "rules": {
+      "suspicious": {
+        "noConsole": "off",  // Console logs allowed
+        "noEmptyBlockStatements": "off"
+      },
+      "correctness": {
+        "noUnusedImports": "off",  // Handled by TypeScript
+        "useExhaustiveDependencies": "off"  // React hooks deps
+      }
+    }
+  }
+}
+```
+
+<Note>
+  These rules are disabled intentionally. Don't re-enable them without team discussion.
+</Note>
+
+## Pre-commit Hooks
+
+### Lint-Staged
+
+Automatic formatting runs on commit:
+
+```json package.json
+{
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,jsonc,css,md,mdx}": [
+      "bunx ultracite fix"
+    ]
+  }
+}
+```
+
+### Commitlint
+
+Commit messages are validated against the conventional format.
+
+**Configuration (`.commitlintrc.json`):**
+
+```json
+{
+  "extends": ["@commitlint/config-conventional"],
+  "rules": {
+    "type-enum": [
+      2,
+      "always",
+      [
+        "ci", "chore", "docs", "ticket",
+        "feat", "fix", "perf", "refactor",
+        "revert", "style"
+      ]
+    ]
+  }
+}
+```
+
+## Best Practices
+
+### Code Organization
+
+<Steps>
+  <Step title="Group Imports">
+    Organize imports by type:
+    
+    ```typescript
+    // 1. External dependencies
+    import { useState } from "react";
+    import type { NextPage } from "next";
+    
+    // 2. Internal dependencies
+    import { useCossistant } from "@cossistant/react";
+    import type { Message } from "@cossistant/types";
+    
+    // 3. Relative imports
+    import { formatDate } from "./utils";
+    import type { ChatProps } from "./types";
+    ```
+  </Step>
+  
+  <Step title="Single Responsibility">
+    Each function/component should do one thing well:
+    
+    ```typescript
+    // ✅ Correct - focused responsibility
+    function validateEmail(email: string): boolean {
+    	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+    
+    function formatEmail(email: string): string {
+    	return email.trim().toLowerCase();
+    }
+    
+    // ❌ Incorrect - doing too much
+    function processEmail(email: string): boolean {
+    	const formatted = email.trim().toLowerCase();
+    	const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formatted);
+    	return isValid;
+    }
+    ```
+  </Step>
+  
+  <Step title="Comment When Necessary">
+    Write self-documenting code. Add comments for complex logic:
+    
+    ```typescript
+    // ✅ Correct - explains "why"
+    // Retry 3 times because the API occasionally returns 429s
+    const MAX_RETRIES = 3;
+    
+    // ❌ Incorrect - explains "what" (obvious)
+    // Set max retries to 3
+    const MAX_RETRIES = 3;
+    ```
+  </Step>
+  
+  <Step title="Error Handling">
+    Always handle errors gracefully:
+    
+    ```typescript
+    // ✅ Correct
+    try {
+    	const data = await fetchData();
+    	return data;
+    } catch (error) {
+    	console.error("Failed to fetch data:", error);
+    	return null;
+    }
+    ```
+  </Step>
+</Steps>
+
+### Performance
+
+<CardGroup cols={2}>
+  <Card title="Memoization" icon="memory">
+    Use `useMemo` and `useCallback` for expensive operations
+  </Card>
+  
+  <Card title="Code Splitting" icon="scissors">
+    Lazy load components when possible
+  </Card>
+  
+  <Card title="Bundle Size" icon="weight-scale">
+    Avoid unnecessary dependencies
+  </Card>
+  
+  <Card title="Type Safety" icon="shield">
+    Leverage TypeScript for compile-time checks
+  </Card>
+</CardGroup>
+
+## Documentation Standards
+
+### JSDoc Comments
+
+Add JSDoc comments for public APIs:
+
+```typescript
+/**
+ * Sends a message in a conversation
+ *
+ * @param conversationId - The ID of the conversation
+ * @param content - The message content to send
+ * @returns A promise that resolves to the sent message
+ * @throws {ApiError} If the API request fails
+ *
+ * @example
+ * ```typescript
+ * const message = await sendMessage("conv_123", "Hello!");
+ * console.log(message.id);
+ * ```
+ */
+export async function sendMessage(
+	conversationId: string,
+	content: string,
+): Promise<Message> {
+	// ...
+}
+```
+
+## Tools & Editor Setup
+
+### VS Code
+
+Recommended extensions:
+
+- [Biome](https://marketplace.visualstudio.com/items?itemName=biomejs.biome)
+- [TypeScript](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-typescript-next)
+- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
+
+### Settings
+
+```json .vscode/settings.json
+{
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "quickfix.biome": "explicit",
+    "source.organizeImports.biome": "explicit"
+  }
+}
+```
+
+## Summary
+
+<Note>
+  **Key Takeaways:**
+  - Use tabs for indentation, double quotes for strings
+  - Run `bun run fix` to auto-format code
+  - Follow conventional commit message format
+  - Write type-safe TypeScript with explicit return types
+  - Keep components focused and well-documented
+</Note>
+
+---
+
+**Questions about code style?** Open a discussion on GitHub or ask in Discord.

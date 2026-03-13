@@ -1,0 +1,266 @@
+---
+title: 'Rate Limits'
+description: 'Understand API rate limiting and how to handle rate limit errors'
+---
+
+# Rate Limits
+
+The Cossistant API implements rate limiting to ensure fair usage and system stability. Rate limits are applied per IP address and vary based on endpoint type and environment.
+
+## Rate Limit Tiers
+
+### Default REST API
+
+Applies to all `/v1/*` endpoints:
+
+| Environment | Limit | Window |
+|-------------|-------|--------|
+| Development | 300 requests | 1 minute |
+| Production | 100 requests | 1 minute |
+
+**Endpoints**:
+- `/v1/conversations/*`
+- `/v1/messages/*`
+- `/v1/visitors/*`
+- `/v1/feedback/*`
+- `/v1/knowledge/*`
+
+### Authentication Endpoints
+
+Applies to `/api/auth/*` endpoints:
+
+| Environment | Limit | Window |
+|-------------|-------|--------|
+| All | 30 requests | 1 minute |
+
+**Purpose**: Prevent brute force attacks on authentication.
+
+### TRPC Endpoints
+
+Applies to `/trpc/*` endpoints (dashboard API):
+
+| Environment | Limit | Window |
+|-------------|-------|--------|
+| Development | 200 requests | 1 minute |
+| Production | 100 requests | 1 minute |
+
+### WebSocket Connections
+
+Applies to `/ws` WebSocket upgrade requests:
+
+| Environment | Limit | Window |
+|-------------|-------|--------|
+| Development | 30 connections | 1 minute |
+| Production | 10 connections | 1 minute |
+
+**Note**: Once connected, WebSocket messages are not rate limited, but connection attempts are.
+
+## Rate Limit Headers
+
+All rate-limited responses include these standard headers (draft-6 specification):
+
+```http
+RateLimit-Limit: 100
+RateLimit-Remaining: 95
+RateLimit-Reset: 1640000000
+```
+
+### Header Definitions
+
+<ParamField header="RateLimit-Limit" type="number">
+  Maximum number of requests allowed in the time window
+</ParamField>
+
+<ParamField header="RateLimit-Remaining" type="number">
+  Number of requests remaining in the current window
+</ParamField>
+
+<ParamField header="RateLimit-Reset" type="number">
+  Unix timestamp when the rate limit window resets
+</ParamField>
+
+## Error Response
+
+When you exceed a rate limit, the API returns a `429 Too Many Requests` response:
+
+```json
+{
+  "error": "Too many requests, please try again later."
+}
+```
+
+For TRPC endpoints:
+
+```json
+{
+  "error": "Too many requests",
+  "code": "TOO_MANY_REQUESTS",
+  "message": "Rate limit exceeded. Please try again later."
+}
+```
+
+## IP Address Detection
+
+Rate limits are keyed by client IP address. The API checks these headers in order:
+
+1. `X-Forwarded-For` (first IP in comma-separated list)
+2. `X-Real-IP`
+3. `CF-Connecting-IP` (Cloudflare)
+4. `X-Client-IP`
+5. `X-Original-Forwarded-For`
+6. `X-Forwarded`
+7. `Forwarded-For`
+8. `Forwarded`
+
+If no IP can be determined, requests are tracked as "unknown".
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Implement exponential backoff">
+    When you receive a 429 response, wait before retrying:
+    
+    ```javascript
+    async function fetchWithRetry(url, options, maxRetries = 3) {
+      for (let i = 0; i < maxRetries; i++) {
+        const response = await fetch(url, options);
+        
+        if (response.status === 429) {
+          const resetTime = response.headers.get('RateLimit-Reset');
+          const waitTime = resetTime 
+            ? (parseInt(resetTime) * 1000) - Date.now()
+            : Math.pow(2, i) * 1000; // Exponential backoff
+          
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+        
+        return response;
+      }
+      
+      throw new Error('Max retries exceeded');
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Monitor rate limit headers">
+    Track remaining requests proactively:
+    
+    ```javascript
+    const response = await fetch(url, options);
+    const remaining = response.headers.get('RateLimit-Remaining');
+    
+    if (parseInt(remaining) < 10) {
+      console.warn('Approaching rate limit:', remaining, 'requests remaining');
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Batch operations when possible">
+    - Use pagination to fetch data in reasonable chunks
+    - Group related operations
+    - Cache responses when appropriate
+  </Accordion>
+  
+  <Accordion title="Use WebSocket for real-time updates">
+    Instead of polling REST endpoints, connect via WebSocket:
+    
+    - Conserves rate limit quota
+    - Provides instant updates
+    - More efficient for real-time use cases
+  </Accordion>
+</AccordionGroup>
+
+## Rate Limit Exemptions
+
+The following endpoints are excluded from rate limiting:
+
+- `/health` - Health check endpoint
+
+## Development vs Production
+
+Rate limits are more lenient in development mode to facilitate testing.
+
+**Development mode is detected when**:
+- `NODE_ENV` is not set to `production`
+- Requests come from localhost or development domains
+
+**In production**:
+- Use rate limits as a signal to optimize your integration
+- Consider implementing client-side caching
+- Batch operations where possible
+
+## Contact for Higher Limits
+
+If your use case requires higher rate limits, contact our support team at [support@cossistant.com](mailto:support@cossistant.com) with:
+
+- Your organization ID
+- Use case description
+- Expected request volume
+- Current rate limit bottlenecks
+
+## WebSocket Connection Limits
+
+While WebSocket connection attempts are rate limited, there's no limit on:
+
+- Number of simultaneous connections from different IPs
+- Number of messages sent over an established connection
+- Duration of WebSocket connections
+
+However, best practices recommend:
+- Reuse connections when possible
+- Implement reconnection logic with exponential backoff
+- Clean up unused connections
+
+## Example: Respecting Rate Limits
+
+```typescript
+class CossistantClient {
+  private requestQueue: Promise<any> = Promise.resolve();
+  private lastRequestTime = 0;
+  private minRequestInterval = 600; // 100 req/min = 600ms interval
+  
+  async request(url: string, options: RequestInit) {
+    // Wait for previous request to complete
+    await this.requestQueue;
+    
+    // Ensure minimum interval between requests
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      await new Promise(resolve => 
+        setTimeout(resolve, this.minRequestInterval - timeSinceLastRequest)
+      );
+    }
+    
+    this.lastRequestTime = Date.now();
+    
+    // Make the request
+    const response = await fetch(url, options);
+    
+    // Handle rate limit
+    if (response.status === 429) {
+      const resetTime = response.headers.get('RateLimit-Reset');
+      if (resetTime) {
+        const waitTime = (parseInt(resetTime) * 1000) - Date.now();
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return this.request(url, options); // Retry
+      }
+    }
+    
+    return response;
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Conversations API" icon="messages" href="/api/rest/conversations">
+    Start building with the Conversations API
+  </Card>
+  
+  <Card title="WebSocket API" icon="bolt" href="/api/websocket/overview">
+    Learn about real-time event streaming
+  </Card>
+</CardGroup>

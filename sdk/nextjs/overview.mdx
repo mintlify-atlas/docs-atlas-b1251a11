@@ -1,0 +1,243 @@
+---
+title: Next.js SDK Overview
+description: Build AI-powered support widgets in Next.js applications with the Cossistant SDK
+---
+
+The `@cossistant/next` package provides a complete, production-ready SDK for adding AI-powered customer support to Next.js applications. It's built on top of the React SDK with Next.js-specific optimizations and full support for the App Router.
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="App Router Ready" icon="react">
+    Full support for Next.js 13+ App Router with Server Components and Client Components
+  </Card>
+  <Card title="TypeScript-First" icon="code">
+    Complete type safety with intelligent autocomplete and compile-time checks
+  </Card>
+  <Card title="Real-Time Updates" icon="bolt">
+    WebSocket-powered live chat with automatic reconnection and message syncing
+  </Card>
+  <Card title="Zero Config" icon="wand-magic-sparkles">
+    Works out of the box with sensible defaults - customize only what you need
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+<Steps>
+  <Step title="Install the package">
+    ```bash
+    npm install @cossistant/next
+    ```
+  </Step>
+
+  <Step title="Add your API key">
+    Create a `.env.local` file in your project root:
+    ```bash
+    NEXT_PUBLIC_COSSISTANT_API_KEY=pk_test_xxxx
+    ```
+  </Step>
+
+  <Step title="Wrap your app with SupportProvider">
+    In your root layout (`app/layout.tsx`):
+    ```tsx app/layout.tsx
+    import { SupportProvider } from "@cossistant/next";
+
+    export default function RootLayout({ children }) {
+      return (
+        <html lang="en">
+          <body>
+            <SupportProvider>{children}</SupportProvider>
+          </body>
+        </html>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Add the Support widget">
+    In any page:
+    ```tsx app/page.tsx
+    import { Support } from "@cossistant/next";
+
+    export default function HomePage() {
+      return (
+        <main>
+          <h1>Welcome to my app</h1>
+          <Support />
+        </main>
+      );
+    }
+    ```
+  </Step>
+</Steps>
+
+That's it! Your support widget is now live.
+
+## Core Components
+
+### SupportProvider
+
+The root provider that manages WebSocket connections, visitor state, and real-time synchronization. Must wrap your entire application.
+
+```tsx
+import { SupportProvider } from "@cossistant/next";
+
+export default function RootLayout({ children }) {
+  return (
+    <SupportProvider
+      publicKey={process.env.NEXT_PUBLIC_COSSISTANT_API_KEY}
+      defaultOpen={false}
+      autoConnect={true}
+    >
+      {children}
+    </SupportProvider>
+  );
+}
+```
+
+### Support
+
+The main widget component that renders a floating chat interface. Can be placed anywhere in your app.
+
+```tsx
+import { Support } from "@cossistant/next";
+
+export default function Page() {
+  return <Support />;
+}
+```
+
+### IdentifySupportVisitor
+
+Server Component for identifying logged-in users. Use in layouts or pages where user data is available.
+
+```tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+
+export default async function DashboardLayout({ children }) {
+  const session = await getSession();
+
+  return (
+    <>
+      {session?.user && (
+        <IdentifySupportVisitor
+          email={session.user.email}
+          name={session.user.name}
+          externalId={session.user.id}
+        />
+      )}
+      {children}
+    </>
+  );
+}
+```
+
+### SupportConfig
+
+Configure widget behavior per-page with context-specific quick options.
+
+```tsx
+import { SupportConfig } from "@cossistant/next";
+
+export default function PricingPage() {
+  return (
+    <>
+      <SupportConfig
+        quickOptions={[
+          "How does billing work?",
+          "What's included in Pro?",
+          "Can I cancel anytime?",
+        ]}
+      />
+      <main>
+        <h1>Pricing</h1>
+      </main>
+    </>
+  );
+}
+```
+
+## Package Exports
+
+The SDK uses subpath exports for optimal tree-shaking:
+
+```tsx
+// Main exports
+import { Support, SupportProvider, useSupport } from "@cossistant/next";
+
+// Hooks
+import { useSupportNavigation } from "@cossistant/next";
+
+// Configuration
+import { SupportConfig } from "@cossistant/next";
+import { IdentifySupportVisitor } from "@cossistant/next";
+
+// Feedback widget
+import { Feedback } from "@cossistant/next/feedback";
+
+// Low-level primitives (advanced)
+import * as Primitives from "@cossistant/next/primitives";
+
+// Realtime utilities (advanced)
+import { useRealtimeSupport } from "@cossistant/next/realtime";
+
+// Styles (if not using default)
+import "@cossistant/next/support.css";
+```
+
+## Version Compatibility
+
+<Note>
+  The Next.js SDK requires:
+  - Next.js 13.5.2 or later (App Router support)
+  - React 18 or later
+  - TypeScript 4.9+ (recommended)
+</Note>
+
+| Next.js Version | SDK Version | Status |
+|----------------|-------------|--------|
+| 16.x           | 0.1.2+      | ✅ Fully supported |
+| 15.x           | 0.1.2+      | ✅ Fully supported |
+| 14.x           | 0.1.2+      | ✅ Fully supported |
+| 13.5.2 - 13.x  | 0.1.2+      | ✅ Fully supported |
+| 12.x or older  | -           | ❌ Not supported |
+
+## Architecture
+
+The Next.js SDK is a thin wrapper around `@cossistant/react` that adds:
+
+- **"use client" directives** for proper Client Component boundaries
+- **Server Component compatibility** for `IdentifySupportVisitor`
+- **Next.js-specific optimizations** for routing and hydration
+- **Environment variable conventions** (`NEXT_PUBLIC_COSSISTANT_API_KEY`)
+
+All core functionality comes from the React SDK, so the APIs are identical across frameworks.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Setup Guide" icon="gear" href="/sdk/nextjs/setup">
+    Detailed installation and configuration instructions
+  </Card>
+  <Card title="Server Components" icon="server" href="/sdk/nextjs/server-components">
+    Learn how to use IdentifySupportVisitor in layouts
+  </Card>
+  <Card title="Hooks Reference" icon="code" href="/sdk/react/hooks">
+    Complete API reference for all React hooks
+  </Card>
+  <Card title="Customization" icon="palette" href="/sdk/react/support-widget">
+    Style the widget to match your brand
+  </Card>
+</CardGroup>
+
+## Examples
+
+<CardGroup cols={2}>
+  <Card title="Next.js + Tailwind" icon="github" href="https://github.com/cossistantcom/cossistant/tree/main/examples/nextjs-tailwind">
+    Complete example app with authentication and routing
+  </Card>
+  <Card title="E-commerce Store" icon="cart-shopping" href="/quickstart">
+    Product-specific support with order tracking
+  </Card>
+</CardGroup>

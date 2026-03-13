@@ -1,0 +1,440 @@
+---
+title: "AI Agents"
+description: "Deep dive into Cossistant's AI agent architecture, pipeline execution, and tool system"
+---
+
+AI agents are the core intelligence layer in Cossistant. They autonomously handle customer conversations, make decisions, and execute actions through a sophisticated multi-stage pipeline.
+
+## Agent Architecture
+
+### Agent Configuration
+
+Each AI agent is a configurable entity with specific behavior settings:
+
+```typescript apps/api/src/db/schema/ai-agent.ts
+export type AiAgentBehaviorSettings = {
+  // Capability toggles
+  canResolve: boolean;
+  canMarkSpam: boolean;
+  canAssign: boolean;
+  canSetPriority: boolean;
+  canCategorize: boolean;
+  canEscalate: boolean;
+
+  // Escalation configuration
+  defaultEscalationUserId: string | null;
+  autoAssignOnEscalation?: boolean;
+  maxToolInvocationsPerRun: number;
+
+  // Background analysis (runs silently)
+  autoAnalyzeSentiment: boolean;
+  autoGenerateTitle: boolean;
+  autoCategorize: boolean;
+};
+```
+
+<Tip>
+  Behavior settings allow you to fine-tune agent capabilities per website. For example, you can disable `canResolve` for agents that should always escalate to humans for final resolution.
+</Tip>
+
+## AI Pipeline Architecture
+
+The AI pipeline executes in three distinct stages:
+
+<Steps>
+  <Step title="Intake">
+    Load conversation context, history, and visitor information
+  </Step>
+  <Step title="Decision">
+    Determine if and how the agent should respond
+  </Step>
+  <Step title="Generation">
+    Execute AI model inference and tool calls to generate response
+  </Step>
+</Steps>
+
+### Pipeline Execution Flow
+
+```typescript apps/api/src/ai-pipeline/primary-pipeline/index.ts
+export async function runPrimaryPipeline(
+  ctx: PrimaryPipelineContext
+): Promise<PrimaryPipelineResult> {
+  const pipelineStartedAt = Date.now();
+  const metrics = createStageMetrics();
+
+  // Stage 1: Intake
+  const intakeResult = await measureStage(metrics, "intakeMs", () =>
+    runIntakeStep({
+      db: ctx.db,
+      input: ctx.input,
+    })
+  );
+
+  if (intakeResult.status !== "ready") {
+    // Skip or retry based on cursor disposition
+    return buildPrimaryPipelineResult({
+      status: "skipped",
+      metrics,
+      pipelineStartedAt,
+      reason: intakeResult.reason,
+    });
+  }
+
+  // Stage 2: Decision
+  const decisionResult = await measureStage(metrics, "decisionMs", () =>
+    runDecisionStep({
+      db: ctx.db,
+      input: intakeResult.data,
+    })
+  );
+
+  if (!decisionResult.shouldAct) {
+    return buildPrimaryPipelineResult({
+      status: "skipped",
+      reason: decisionResult.reason,
+    });
+  }
+
+  // Stage 3: Generation
+  const generationResult = await measureStage(metrics, "generationMs", () =>
+    runGenerationRuntime(
+      buildGenerationRuntimeInput({
+        ctx,
+        intake: intakeResult.data,
+        decision: decisionResult,
+      })
+    )
+  );
+
+  return buildPrimaryPipelineResult({
+    status: "completed",
+    action: generationResult.action.action,
+    reason: generationResult.action.reasoning,
+  });
+}
+```
+
+## Stage 1: Intake
+
+The intake stage loads all necessary context for decision-making:
+
+<AccordionGroup>
+  <Accordion title="Context Loading">
+    - **Conversation**: Current conversation state, metadata, and settings
+    - **History**: Recent timeline items (messages, actions, notes)
+    - **Visitor**: Contact information, metadata, and session data
+    - **State**: Escalation status, AI pause state, processing cursor
+  </Accordion>
+
+  <Accordion title="Cursor Management">
+    The intake stage uses a processing cursor to ensure ordered message handling:
+
+    ```typescript apps/api/src/db/schema/conversation.ts
+    // AI agent processing cursor for ordered message handling
+    aiAgentLastProcessedMessageId: ulidNullableReference(
+      "ai_agent_last_processed_message_id"
+    ),
+    aiAgentLastProcessedMessageCreatedAt: timestamp(
+      "ai_agent_last_processed_message_created_at"
+    ),
+    ```
+
+    This prevents race conditions when multiple messages arrive simultaneously.
+  </Accordion>
+</AccordionGroup>
+
+## Stage 2: Decision
+
+The decision stage determines whether and how the agent should respond:
+
+```typescript apps/api/src/ai-pipeline/primary-pipeline/steps/decision/index.ts
+export async function runDecisionStep(params: {
+  db: Database;
+  input: DecisionStepInput;
+}): Promise<DecisionResult> {
+  // First, check deterministic rules (e.g., AI paused, human in conversation)
+  const deterministicDecision = runDeterministicDecision(params.input);
+
+  if (deterministicDecision.type === "final") {
+    return deterministicDecision.result;
+  }
+
+  // If no deterministic rule applies, use AI-powered smart decision
+  const smartDecision = await runSmartDecision({
+    aiAgent: params.input.aiAgent,
+    conversation: params.input.conversation,
+    conversationHistory: params.input.conversationHistory,
+    conversationState: params.input.conversationState,
+    triggerMessage: params.input.triggerMessage,
+  });
+
+  return mapSmartDecisionToDecisionResult({
+    input: params.input,
+    smartDecision,
+  });
+}
+```
+
+### Decision Modes
+
+<CardGroup cols={2}>
+  <Card title="Primary Mode" icon="message">
+    Agent responds publicly to the customer with messages and actions
+  </Card>
+  <Card title="Background Mode" icon="eye-slash">
+    Agent performs silent analysis (sentiment, categorization, priority)
+  </Card>
+</CardGroup>
+
+<Note>
+  The decision stage can skip execution if:
+  - AI is paused (`aiPausedUntil` is in the future)
+  - A human has recently replied
+  - The conversation is already resolved
+  - The trigger message is from the AI agent itself
+</Note>
+
+## Stage 3: Generation
+
+The generation stage executes the AI model and tools:
+
+### Tool System
+
+Cossistant uses a flexible tool system that provides capabilities to AI agents:
+
+```typescript apps/api/src/ai-pipeline/shared/tools/catalog.ts
+export const SHARED_PIPELINE_TOOL_CATALOG = [
+  {
+    id: "searchKnowledgeBase",
+    factory: createSearchKnowledgeBaseTool,
+    availability: { primary: true, background: true },
+  },
+  {
+    id: "sendMessage",
+    factory: createSendMessageTool,
+    availability: { primary: true, background: false, publicOnly: true },
+  },
+  {
+    id: "escalate",
+    factory: createEscalateTool,
+    availability: { primary: true, background: false, publicOnly: true },
+    behaviorSettingKey: "canEscalate",
+  },
+  {
+    id: "resolve",
+    factory: createResolveTool,
+    availability: { primary: true, background: false, publicOnly: true },
+    behaviorSettingKey: "canResolve",
+  },
+  {
+    id: "updateSentiment",
+    factory: createUpdateSentimentTool,
+    availability: { primary: false, background: true },
+    behaviorSettingKey: "autoAnalyzeSentiment",
+  },
+];
+```
+
+### Tool Categories
+
+<Tabs>
+  <Tab title="Finish Tools">
+    Finish tools complete the agent's turn and must be called last:
+
+    - **respond**: Send a message and mark as complete
+    - **escalate**: Escalate to human agent with reason
+    - **resolve**: Mark conversation as resolved
+    - **markSpam**: Flag conversation as spam
+    - **skip**: Skip this turn without action
+
+    ```typescript apps/api/src/ai-pipeline/shared/tools/catalog.ts
+    export const FINISH_TOOL_IDS = [
+      "respond",
+      "escalate",
+      "resolve",
+      "markSpam",
+      "skip",
+    ] as const;
+    ```
+  </Tab>
+
+  <Tab title="Action Tools">
+    Action tools modify conversation state:
+
+    - **sendMessage**: Send a public message to the customer
+    - **sendPrivateMessage**: Add internal note (not visible to customer)
+    - **identifyVisitor**: Update visitor contact information
+  </Tab>
+
+  <Tab title="Context Tools">
+    Context tools retrieve information:
+
+    - **searchKnowledgeBase**: Query the knowledge base for relevant information
+  </Tab>
+
+  <Tab title="Analysis Tools">
+    Analysis tools update metadata (typically background mode):
+
+    - **updateSentiment**: Analyze and set conversation sentiment
+    - **updateConversationTitle**: Generate a descriptive title
+    - **categorizeConversation**: Assign to views/categories
+    - **setPriority**: Set conversation priority level
+  </Tab>
+</Tabs>
+
+### Generation Runtime
+
+```typescript apps/api/src/ai-pipeline/shared/generation/index.ts
+export async function runGenerationRuntime(
+  input: GenerationRuntimeInput
+): Promise<GenerationRuntimeResult> {
+  const runtimeState = createToolRuntimeState();
+  const toolContext = buildToolContext({ input, runtimeState });
+
+  // Build toolset based on agent behavior settings
+  const baseToolsetResolution = buildPipelineToolset({
+    aiAgent: input.aiAgent,
+    context: toolContext,
+    allowedToolNames: input.toolAllowlist,
+  });
+
+  // Resolve prompt bundle (base prompt + documents + skills)
+  const promptBundle = await resolvePromptBundle({
+    db: input.db,
+    aiAgent: input.aiAgent,
+    mode: input.mode,
+  });
+
+  // Build system prompt with tools
+  const systemPrompt = buildGenerationSystemPrompt({
+    input,
+    promptBundle,
+    toolset: baseToolsetResolution.tools,
+    toolNames: baseToolsetResolution.toolNames,
+  });
+
+  // Execute AI model with tools
+  const primaryResult = await runGenerationAttempt({
+    input,
+    modelId: input.aiAgent.model,
+    systemPrompt,
+    messages,
+    nonFinishToolBudget,
+    toolsetResolution: baseToolsetResolution,
+    runtimeState,
+  });
+
+  return primaryResult;
+}
+```
+
+<Info>
+  The generation runtime enforces a **messaging contract**: In primary mode, the agent must call `sendMessage` or `respond` at least once to provide a public response to the customer.
+</Info>
+
+## Real-time Progress Updates
+
+As the pipeline executes, progress events are emitted via WebSocket:
+
+```typescript apps/api/src/ai-pipeline/primary-pipeline/index.ts
+await emitPipelineGenerationProgress({
+  conversation: input.conversation,
+  aiAgentId: input.aiAgent.id,
+  workflowRunId: input.workflowRunId,
+  phase: "thinking",
+  message: "Analyzing conversation context...",
+  audience: "dashboard", // or "all" for customer-visible
+});
+```
+
+<CardGroup cols={3}>
+  <Card title="aiAgentProcessingStarted" icon="play">
+    Pipeline begins execution
+  </Card>
+  <Card title="aiAgentDecisionMade" icon="brain">
+    Decision stage completes with shouldAct result
+  </Card>
+  <Card title="aiAgentProcessingProgress" icon="spinner">
+    Generation stage progress updates
+  </Card>
+  <Card title="aiAgentProcessingCompleted" icon="check">
+    Pipeline completes with action and status
+  </Card>
+</CardGroup>
+
+## Background Pipeline
+
+In addition to the primary pipeline, Cossistant runs a background pipeline for silent analysis:
+
+- Runs independently after primary pipeline completes
+- Executes only analysis tools (sentiment, title, categorization)
+- Never sends public messages or escalates
+- Can be configured per-agent via `behaviorSettings`
+
+<Tip>
+  Enable background analysis tools like `autoAnalyzeSentiment` and `autoGenerateTitle` to enrich conversation metadata without affecting customer-facing behavior.
+</Tip>
+
+## Error Handling & Retries
+
+The pipeline implements sophisticated error handling:
+
+```typescript apps/api/src/ai-pipeline/primary-pipeline/index.ts
+if (generationResult.status === "error") {
+  const errorMessage = generationResult.error ?? "Generation step failed";
+  const retryable = generationResult.publicMessagesSent === 0;
+
+  await emitProcessingCompletedSafe({
+    status: "error",
+    reason: errorMessage,
+  });
+
+  return buildPrimaryPipelineResult({
+    status: "error",
+    error: errorMessage,
+    retryable, // Retry only if no messages sent
+    cursorDisposition: retryable ? "retry" : "advance",
+  });
+}
+```
+
+<Note>
+  **Cursor Disposition** determines retry behavior:
+  - `retry`: Process the same message again (error recovery)
+  - `advance`: Move to next message (error is non-recoverable)
+  - `skip`: Don't process this message at all
+</Note>
+
+## Usage Tracking
+
+Token usage and costs are tracked per pipeline execution:
+
+```typescript apps/api/src/ai-pipeline/primary-pipeline/internal/usage.ts
+usageTelemetry = await trackPrimaryGenerationUsage({
+  db: ctx.db,
+  organizationId: ctx.input.organizationId,
+  websiteId: ctx.input.websiteId,
+  conversationId: ctx.input.conversationId,
+  visitorId: ctx.input.visitorId,
+  workflowRunId: ctx.input.workflowRunId,
+  triggerMessageId: ctx.input.messageId,
+  intake: intakeResult.data,
+  generationResult,
+});
+```
+
+## Performance Metrics
+
+Each pipeline execution tracks detailed metrics:
+
+- **intakeMs**: Time spent loading context
+- **decisionMs**: Time spent in decision stage
+- **generationMs**: Time spent in AI generation
+- **toolCallsByName**: Number of calls per tool
+- **totalTokens**: Token consumption (input + output)
+
+<Card title="Next Steps" icon="arrow-right">
+  - [Real-time Messaging](/concepts/real-time-messaging) - Learn how events flow to clients
+  - [Visitor Identification](/concepts/visitor-identification) - Understand visitor tracking
+  - [API Reference](/api/overview) - Explore the complete API
+</Card>

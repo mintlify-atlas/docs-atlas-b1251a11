@@ -1,0 +1,148 @@
+---
+title: 'API Overview'
+description: 'Introduction to the Cossistant API'
+---
+
+# API Overview
+
+The Cossistant API provides programmatic access to customer support conversations, visitor tracking, and real-time communication features. The API is built on a RESTful architecture with WebSocket support for real-time events.
+
+## Base URL
+
+```
+https://api.cossistant.com/v1
+```
+
+## API Architecture
+
+Cossistant provides three main API interfaces:
+
+### REST API
+
+HTTP-based API for creating and managing:
+- **Conversations**: Create and retrieve customer conversations
+- **Messages**: Send messages and timeline items
+- **Visitors**: Track and identify website visitors
+- **Feedback**: Collect and analyze customer feedback
+- **Knowledge**: Manage knowledge base entries for AI agents
+
+### WebSocket API
+
+Real-time bidirectional communication for:
+- Live conversation updates
+- Typing indicators
+- Presence tracking
+- AI agent processing events
+- Read receipts
+
+### React Hooks
+
+Pre-built React hooks for:
+- Managing conversation state
+- Sending messages with optimistic updates
+- Real-time event subscriptions
+- Visitor identification and metadata
+
+## Authentication
+
+The API supports two types of API keys:
+
+<CardGroup cols={2}>
+  <Card title="Public API Key" icon="globe">
+    For browser-based applications. Restricted by domain whitelist.
+    
+    Format: `pk_[live|test]_[64 hex chars]`
+  </Card>
+  
+  <Card title="Private API Key" icon="lock">
+    For server-to-server communication. Full API access.
+    
+    Format: `sk_[live|test]_[64 hex chars]`
+  </Card>
+</CardGroup>
+
+See [Authentication](/api/authentication) for detailed information.
+
+## Rate Limits
+
+API endpoints have different rate limits based on their purpose:
+
+| Endpoint Type | Development | Production |
+|--------------|-------------|------------|
+| REST API | 300 req/min | 100 req/min |
+| WebSocket | 30 conn/min | 10 conn/min |
+| Auth | 30 req/min | 30 req/min |
+
+See [Rate Limits](/api/rate-limits) for more information.
+
+## Key Concepts
+
+### Organizations & Websites
+
+Every API request is scoped to:
+- **Organization**: Your account
+- **Website**: A specific project within your organization
+
+### Visitors & Contacts
+
+- **Visitor**: An anonymous browser session with device/location data
+- **Contact**: An identified user with email, name, and metadata
+- Use the `/contacts/identify` endpoint to link visitors to contacts
+
+### Conversations & Timeline Items
+
+- **Conversation**: A support thread between a visitor and your team
+- **Timeline Item**: A message or event within a conversation
+- Timeline items can be messages, events, or tool outputs
+
+### Visibility Levels
+
+- **Public**: Visible to both visitors and dashboard users
+- **Private**: Only visible to dashboard users (internal notes)
+
+## SDKs and Libraries
+
+<CardGroup cols={2}>
+  <Card title="JavaScript/TypeScript" icon="js">
+    ```bash
+    npm install @cossistant/core
+    ```
+  </Card>
+  
+  <Card title="React" icon="react">
+    ```bash
+    npm install @cossistant/react
+    ```
+  </Card>
+</CardGroup>
+
+## API Status
+
+Check the health of the API:
+
+```bash
+curl https://api.cossistant.com/health
+```
+
+Response:
+```json
+{
+  "status": "healthy"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate your API requests
+  </Card>
+  
+  <Card title="REST API" icon="code" href="/api/rest/conversations">
+    Explore REST endpoints for conversations and messages
+  </Card>
+  
+  <Card title="WebSocket API" icon="bolt" href="/api/websocket/overview">
+    Set up real-time event streaming
+  </Card>
+</CardGroup>

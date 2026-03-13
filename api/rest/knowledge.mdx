@@ -1,0 +1,520 @@
+---
+title: 'Knowledge API'
+description: 'Manage knowledge base entries for AI agents'
+---
+
+# Knowledge API
+
+The Knowledge API allows you to create and manage knowledge base entries that AI agents use to answer customer questions. Knowledge entries can be URLs, FAQs, or custom articles.
+
+## Base Endpoint
+
+```
+GET     /v1/knowledge
+POST    /v1/knowledge
+GET     /v1/knowledge/{id}
+PATCH   /v1/knowledge/{id}
+DELETE  /v1/knowledge/{id}
+```
+
+<Note>
+All knowledge endpoints **require a private API key**. Knowledge management is sensitive and should only be done server-side.
+</Note>
+
+## List Knowledge
+
+`GET /v1/knowledge`
+
+Retrieve a paginated list of knowledge entries.
+
+### Authentication
+
+<Snippet file="auth-private-key.mdx" />
+
+### Query Parameters
+
+<ParamField query="type" type="string">
+  Filter by knowledge type: `url`, `faq`, or `article`
+</ParamField>
+
+<ParamField query="aiAgentId" type="string">
+  Filter by AI agent ID. Use `null` to find unassigned entries.
+</ParamField>
+
+<ParamField query="page" type="number" default="1">
+  Page number (1-indexed)
+</ParamField>
+
+<ParamField query="limit" type="number" default="20">
+  Items per page (max 100)
+</ParamField>
+
+### Response
+
+<ResponseField name="items" type="array">
+  Array of knowledge entries
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  Pagination metadata with page, limit, total, and totalPages
+</ResponseField>
+
+### Example
+
+```bash
+curl "https://api.cossistant.com/v1/knowledge?type=faq&limit=10" \
+  -H "Authorization: Bearer sk_test_xyz789..."
+```
+
+<ResponseExample>
+```json
+{
+  "items": [
+    {
+      "id": "01JG456789012ABCDEFGHIJK",
+      "organizationId": "01JG000000000000000000002",
+      "websiteId": "01JG000000000000000000001",
+      "aiAgentId": "01JG000000000000000000004",
+      "linkSourceId": null,
+      "type": "faq",
+      "sourceUrl": "https://example.com/faq",
+      "sourceTitle": "How do I reset my password?",
+      "origin": "manual",
+      "createdBy": "user_123",
+      "contentHash": "sha256:abc123...",
+      "payload": {
+        "question": "How do I reset my password?",
+        "answer": "Click 'Forgot Password' on the login page..."
+      },
+      "metadata": {
+        "tags": ["authentication", "account"]
+      },
+      "isIncluded": true,
+      "sizeBytes": 1024,
+      "createdAt": "2024-03-13T08:00:00.000Z",
+      "updatedAt": "2024-03-13T08:00:00.000Z",
+      "deletedAt": null
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 47,
+    "totalPages": 5
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Create Knowledge
+
+`POST /v1/knowledge`
+
+Create a new knowledge entry.
+
+### Request Body
+
+<ParamField body="type" type="string" required>
+  Knowledge type: `url`, `faq`, or `article`
+</ParamField>
+
+<ParamField body="origin" type="string" required>
+  How this entry was created: `manual`, `import`, `crawl`, `api`
+</ParamField>
+
+<ParamField body="payload" type="object" required>
+  Content payload (structure varies by type)
+  
+  <Expandable title="Payload by Type">
+    **URL Type**
+    ```json
+    {
+      "url": "https://docs.example.com/api",
+      "title": "API Documentation",
+      "content": "Full page content...",
+      "excerpt": "Brief summary..."
+    }
+    ```
+    
+    **FAQ Type**
+    ```json
+    {
+      "question": "How do I reset my password?",
+      "answer": "Click 'Forgot Password' on the login page..."
+    }
+    ```
+    
+    **Article Type**
+    ```json
+    {
+      "title": "Getting Started Guide",
+      "content": "Full article content in markdown...",
+      "summary": "Brief overview..."
+    }
+    ```
+  </Expandable>
+</ParamField>
+
+<ParamField body="aiAgentId" type="string">
+  Optional AI agent ID to assign this knowledge to. If not provided, knowledge is available to all agents.
+</ParamField>
+
+<ParamField body="sourceUrl" type="string">
+  Original source URL if applicable
+</ParamField>
+
+<ParamField body="sourceTitle" type="string">
+  Title from the source
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Custom metadata (tags, categories, etc.)
+</ParamField>
+
+### Response
+
+Returns the created knowledge entry with all fields.
+
+### Example: Create FAQ
+
+```bash
+curl -X POST https://api.cossistant.com/v1/knowledge \
+  -H "Authorization: Bearer sk_test_xyz789..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "faq",
+    "origin": "manual",
+    "sourceTitle": "How do I upgrade my plan?",
+    "payload": {
+      "question": "How do I upgrade my plan?",
+      "answer": "Go to Settings > Billing and click Upgrade. You can choose from our Pro or Enterprise plans."
+    },
+    "metadata": {
+      "tags": ["billing", "plans"],
+      "category": "account-management"
+    }
+  }'
+```
+
+### Example: Create Article
+
+```bash
+curl -X POST https://api.cossistant.com/v1/knowledge \
+  -H "Authorization: Bearer sk_test_xyz789..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "article",
+    "origin": "api",
+    "sourceTitle": "API Authentication Guide",
+    "sourceUrl": "https://docs.example.com/auth",
+    "payload": {
+      "title": "API Authentication Guide",
+      "content": "# Authentication\n\nOur API uses API keys...\n\n## Getting Started...\n",
+      "summary": "Learn how to authenticate with the Cossistant API using public and private keys."
+    },
+    "aiAgentId": "01JG000000000000000000004",
+    "metadata": {
+      "tags": ["api", "authentication", "security"]
+    }
+  }'
+```
+
+---
+
+## Get Knowledge
+
+`GET /v1/knowledge/{id}`
+
+Retrieve a single knowledge entry by ID.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The knowledge entry ID
+</ParamField>
+
+### Example
+
+```bash
+curl https://api.cossistant.com/v1/knowledge/01JG456789012ABCDEFGHIJK \
+  -H "Authorization: Bearer sk_test_xyz789..."
+```
+
+---
+
+## Update Knowledge
+
+`PATCH /v1/knowledge/{id}`
+
+Update an existing knowledge entry.
+
+### Request Body
+
+All fields are optional. Only provided fields will be updated.
+
+<ParamField body="aiAgentId" type="string">
+  Update AI agent assignment (use `null` to unassign)
+</ParamField>
+
+<ParamField body="sourceUrl" type="string">
+  Update source URL
+</ParamField>
+
+<ParamField body="sourceTitle" type="string">
+  Update source title
+</ParamField>
+
+<ParamField body="payload" type="object">
+  Update content payload (merges with existing)
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Update metadata (merges with existing)
+</ParamField>
+
+### Example
+
+```bash
+curl -X PATCH https://api.cossistant.com/v1/knowledge/01JG456789012ABCDEFGHIJK \
+  -H "Authorization: Bearer sk_test_xyz789..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payload": {
+      "answer": "Updated answer with more details..."
+    },
+    "metadata": {
+      "lastReviewed": "2024-03-13",
+      "reviewedBy": "user_456"
+    }
+  }'
+```
+
+---
+
+## Delete Knowledge
+
+`DELETE /v1/knowledge/{id}`
+
+Soft-delete a knowledge entry. The entry is marked as deleted but not removed from the database.
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Example
+
+```bash
+curl -X DELETE https://api.cossistant.com/v1/knowledge/01JG456789012ABCDEFGHIJK \
+  -H "Authorization: Bearer sk_test_xyz789..."
+```
+
+## Knowledge Types
+
+### URL Knowledge
+
+Crawled or imported web pages:
+
+```json
+{
+  "type": "url",
+  "sourceUrl": "https://docs.example.com/getting-started",
+  "payload": {
+    "url": "https://docs.example.com/getting-started",
+    "title": "Getting Started",
+    "content": "Full page text content...",
+    "excerpt": "Quick overview...",
+    "headings": ["Installation", "Configuration", "First Steps"]
+  }
+}
+```
+
+### FAQ Knowledge
+
+Question and answer pairs:
+
+```json
+{
+  "type": "faq",
+  "payload": {
+    "question": "What payment methods do you accept?",
+    "answer": "We accept all major credit cards, PayPal, and bank transfers for enterprise customers."
+  }
+}
+```
+
+### Article Knowledge
+
+Custom articles or documentation:
+
+```json
+{
+  "type": "article",
+  "payload": {
+    "title": "Security Best Practices",
+    "content": "# Security\n\n## API Keys...\n",
+    "summary": "Essential security guidelines...",
+    "sections": ["API Keys", "Rate Limiting", "CORS"]
+  }
+}
+```
+
+## Content Hashing
+
+The API automatically generates a `contentHash` based on the payload content. This is used to:
+- Detect duplicate content
+- Track content changes
+- Optimize AI agent embeddings
+
+You don't need to provide this field - it's computed server-side.
+
+## AI Agent Assignment
+
+### Global Knowledge
+
+Leave `aiAgentId` as `null` to make knowledge available to all AI agents:
+
+```json
+{
+  "aiAgentId": null,
+  "payload": {
+    "question": "What are your business hours?",
+    "answer": "We're open 9am-5pm EST, Monday-Friday"
+  }
+}
+```
+
+### Agent-Specific Knowledge
+
+Assign to a specific AI agent:
+
+```json
+{
+  "aiAgentId": "01JG000000000000000000004",
+  "payload": {
+    "question": "Technical troubleshooting for Enterprise customers",
+    "answer": "..."
+  }
+}
+```
+
+## Origin Tracking
+
+The `origin` field tracks how knowledge was created:
+
+- `manual`: Created by a user in the dashboard
+- `import`: Bulk imported from file/CSV
+- `crawl`: Automatically crawled from website
+- `api`: Created via API
+
+This helps audit knowledge sources and automate updates.
+
+## Metadata Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use tags for categorization">
+    ```json
+    {
+      "metadata": {
+        "tags": ["billing", "payments", "subscriptions"],
+        "category": "finance"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Track review dates">
+    ```json
+    {
+      "metadata": {
+        "lastReviewed": "2024-03-13",
+        "reviewedBy": "user_456",
+        "nextReviewDate": "2024-06-13"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Add priority/importance">
+    ```json
+    {
+      "metadata": {
+        "priority": "high",
+        "frequency": "often-asked",
+        "difficulty": "beginner"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Link to related resources">
+    ```json
+    {
+      "metadata": {
+        "relatedArticles": ["article_123", "article_456"],
+        "videoUrl": "https://youtube.com/watch?v=..."
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Bulk Operations
+
+For importing large knowledge bases:
+
+```javascript
+const faqs = [
+  { question: '...', answer: '...' },
+  { question: '...', answer: '...' },
+  // ... 100 more
+];
+
+// Import in batches
+for (const faq of faqs) {
+  await client.createKnowledge({
+    type: 'faq',
+    origin: 'import',
+    sourceTitle: faq.question,
+    payload: faq
+  });
+  
+  // Respect rate limits
+  await sleep(100);
+}
+```
+
+## Error Responses
+
+<ResponseField name="400 Bad Request" type="object">
+  Invalid request data
+  ```json
+  {
+    "error": "BAD_REQUEST",
+    "message": "Invalid type 'blog'. Must be one of: url, faq, article"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404 Not Found" type="object">
+  Knowledge entry not found
+  ```json
+  {
+    "error": "NOT_FOUND",
+    "message": "Knowledge entry not found"
+  }
+  ```
+</ResponseField>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="AI Agents" icon="robot" href="/concepts/ai-agents">
+    Learn about AI agent configuration
+  </Card>
+  
+  <Card title="Web Crawling" icon="spider" href="/dashboard/knowledge-base">
+    Automatically crawl your documentation
+  </Card>
+</CardGroup>

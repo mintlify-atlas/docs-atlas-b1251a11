@@ -1,0 +1,510 @@
+---
+title: "Real-time Messaging"
+description: "Understanding Cossistant's WebSocket architecture and event-driven communication system"
+---
+
+Cossistant's real-time messaging layer enables instant bidirectional communication between the server, dashboard users, and widget visitors through WebSockets and an event-driven pub/sub architecture.
+
+## WebSocket Architecture
+
+### Connection Lifecycle
+
+WebSocket connections are established at `/ws` and go through a strict authentication flow:
+
+```typescript apps/api/src/ws/socket.ts
+export const upgradedWebsocket = upgradeWebSocket(async (c) => {
+  let authResult: WebSocketAuthSuccess | null = null;
+
+  try {
+    // Perform authentication during upgrade phase
+    authResult = await authenticateWebSocketConnection(c);
+  } catch (error) {
+    if (error instanceof AuthValidationError) {
+      authError = error;
+    }
+  }
+
+  return {
+    async onOpen(evt, ws) {
+      const connectionId = generateConnectionId();
+
+      // Check authentication result
+      if (!authResult) {
+        await handleAuthenticationFailure(ws, connectionId);
+        return;
+      }
+
+      // Register connection in local registry
+      registerConnection(connectionId, {
+        socket: ws.raw as RawSocket,
+        websiteId: authResult.websiteId,
+        organizationId: authResult.organizationId,
+        userId: authResult.userId,
+        visitorId: authResult.visitorId,
+      });
+
+      // Send connection established message
+      sendConnectionEstablishedMessage(ws, connectionId, authResult);
+
+      // Emit connection event
+      const event = createConnectionEvent(authResult, connectionId);
+      await routeEvent(event, context);
+    },
+  };
+});
+```
+
+<Steps>
+  <Step title="Authentication">
+    Client authenticates with API key (widget) or session token (dashboard)
+  </Step>
+  <Step title="Connection Registration">
+    Connection is indexed by `connectionId`, `websiteId`, and `visitorId`
+  </Step>
+  <Step title="Confirmation">
+    Server sends `connectionEstablished` event with connection metadata
+  </Step>
+  <Step title="Event Routing">
+    Connection event is routed to appropriate handlers
+  </Step>
+</Steps>
+
+### Dual Authentication Methods
+
+<Tabs>
+  <Tab title="API Key (Widget)">
+    Widget connections authenticate using public/private key pairs:
+
+    ```typescript apps/api/src/ws/socket.ts
+    function extractAuthCredentials(c: Context): {
+      privateKey: string | undefined;
+      publicKey: string | undefined;
+      visitorId: string | undefined;
+    } {
+      // Try headers first (for non-browser clients)
+      const authHeader = c.req.header("Authorization");
+      let privateKey = authHeader?.split(" ")[1];
+      let publicKey = c.req.header("X-Public-Key");
+      let visitorId = c.req.header("X-Visitor-Id");
+
+      // Fallback to URL parameters (for browser WebSocket clients)
+      // Browsers can't set custom headers on WebSocket connections
+      if (!privateKey) {
+        privateKey = c.req.query("token");
+      }
+      if (!publicKey) {
+        publicKey = c.req.query("publicKey");
+      }
+      if (!visitorId) {
+        visitorId = c.req.query("visitorId");
+      }
+
+      return { privateKey, publicKey, visitorId };
+    }
+    ```
+  </Tab>
+
+  <Tab title="Session Token (Dashboard)">
+    Dashboard connections authenticate using Better Auth session cookies:
+
+    ```typescript apps/api/src/ws/socket.ts
+    async function authenticateWithSession(
+      c: Context,
+      sessionToken: string | undefined
+    ): Promise<WebSocketAuthSuccess | null> {
+      const session = await resolveSession(db, {
+        headers: c.req.raw.headers,
+        sessionToken,
+      });
+
+      if (!session) {
+        return null;
+      }
+
+      const organizationId = session.session.activeOrganizationId ?? null;
+      const activeTeamId = session.session.activeTeamId ?? null;
+
+      let websiteId: string | undefined;
+      if (activeTeamId) {
+        const [site] = await db
+          .select({ id: websiteTable.id })
+          .from(websiteTable)
+          .where(eq(websiteTable.teamId, activeTeamId))
+          .limit(1);
+        websiteId = site?.id;
+      }
+
+      return {
+        organizationId,
+        websiteId,
+        userId: session.user.id,
+      };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Connection Registry
+
+Cossistant uses an indexed connection registry for O(1) event dispatch:
+
+```typescript apps/api/src/ws/connection-registry.ts
+// Primary connection store - maps connectionId to connection record
+export const localConnections = new Map<string, LocalConnectionRecord>();
+
+// Index: websiteId -> Set of connectionIds
+const connectionsByWebsiteId = new Map<string, Set<string>>();
+
+// Index: visitorId -> Set of connectionIds
+const connectionsByVisitorId = new Map<string, Set<string>>();
+
+export function registerConnection(
+  connectionId: string,
+  record: LocalConnectionRecord
+): void {
+  localConnections.set(connectionId, record);
+
+  // Update website index
+  if (record.websiteId) {
+    let websiteConnections = connectionsByWebsiteId.get(record.websiteId);
+    if (!websiteConnections) {
+      websiteConnections = new Set();
+      connectionsByWebsiteId.set(record.websiteId, websiteConnections);
+    }
+    websiteConnections.add(connectionId);
+  }
+
+  // Update visitor index
+  if (record.visitorId) {
+    let visitorConnections = connectionsByVisitorId.get(record.visitorId);
+    if (!visitorConnections) {
+      visitorConnections = new Set();
+      connectionsByVisitorId.set(record.visitorId, visitorConnections);
+    }
+    visitorConnections.add(connectionId);
+  }
+}
+```
+
+<Info>
+  The indexed registry enables efficient broadcast patterns:
+  - Send to **all connections for a visitor**: O(1) lookup + O(n) send where n = connections per visitor
+  - Send to **all dashboard users for a website**: O(1) lookup + O(m) send where m = users connected to website
+</Info>
+
+## Event Router
+
+All real-time events flow through a central router that enforces dispatch rules:
+
+```typescript apps/api/src/ws/router.ts
+type DispatchRule = {
+  website: boolean; // Send to dashboard users
+  visitor: boolean; // Send to visitor connections
+};
+
+const dispatchRules: Partial<Record<RealtimeEventType, DispatchRuleOverrides>> = {
+  // User connection events - only to dashboard (exclude self)
+  userConnected: { website: { excludeConnection: true }, visitor: false },
+  userDisconnected: { website: { excludeConnection: true }, visitor: false },
+
+  // Visitor connection events - only to dashboard
+  visitorConnected: { website: true, visitor: false },
+  visitorDisconnected: { website: true, visitor: false },
+
+  // Conversation events - to both dashboard and visitor
+  conversationCreated: { website: true, visitor: true },
+  timelineItemCreated: { website: true, visitor: true },
+  conversationSeen: { website: true, visitor: true },
+  conversationTyping: { website: true, visitor: true },
+
+  // AI agent events - audience-filtered
+  aiAgentProcessingStarted: { website: true, visitor: true },
+  aiAgentProcessingCompleted: { website: true, visitor: true },
+};
+```
+
+### Event Dispatch Flow
+
+```typescript apps/api/src/ws/router.ts
+export async function routeEvent<T extends RealtimeEventType>(
+  event: RealtimeEvent<T>,
+  context: EventContext
+): Promise<void> {
+  const handler = eventHandlers[event.type];
+
+  // Execute handler logic (e.g., update presence)
+  await handler(context, event);
+
+  // Apply dispatch rules
+  const rules = resolveDispatchRules(event.type);
+
+  // Dispatch to website (dashboard users)
+  if (rules.website && event.payload.websiteId) {
+    context.sendToWebsite(
+      event.payload.websiteId,
+      event,
+      { exclude: context.connectionId } // Don't echo back to sender
+    );
+  }
+
+  // Dispatch to visitor (with audience filtering)
+  if (rules.visitor && event.payload.visitorId && shouldSendToVisitor(event)) {
+    context.sendToVisitor(event.payload.visitorId, event);
+  }
+}
+```
+
+### Audience Filtering
+
+Some events support audience filtering to control visibility:
+
+```typescript apps/api/src/ws/router.ts
+function shouldSendToVisitor<T extends RealtimeEventType>(
+  event: RealtimeEvent<T>
+): boolean {
+  const payload = event.payload as Record<string, unknown>;
+
+  // If audience is 'dashboard', don't send to visitor
+  if ("audience" in payload && payload.audience === "dashboard") {
+    return false;
+  }
+
+  // Never send private timeline items to visitors
+  if ("item" in payload) {
+    const item = payload.item as Record<string, unknown>;
+    if (item && "visibility" in item && item.visibility === "private") {
+      return false;
+    }
+  }
+
+  // Keep dashboard-only pause controls private
+  if (event.type === "conversationUpdated") {
+    const updates = payload.updates as Record<string, unknown>;
+    if (updates && "aiPausedUntil" in updates) {
+      return false;
+    }
+  }
+
+  return true;
+}
+```
+
+<Note>
+  **Audience filtering** allows the same event type to be selectively visible. For example, `aiAgentProcessingCompleted` with `audience: "all"` shows typing indicator to customer, while `audience: "dashboard"` keeps it internal.
+</Note>
+
+## Client-Initiated Events
+
+Clients can send specific events through WebSocket:
+
+```typescript apps/api/src/ws/socket.ts
+const CLIENT_ALLOWED_EVENT_TYPES = new Set([
+  "conversationTyping",
+  "conversationSeen",
+]);
+
+async function onMessage(evt, ws) {
+  const parsed = parseRealtimeEventMessage(evt.data, ws);
+
+  // Validate client is authorized for this event type
+  const isAuthorized = await validateClientEvent(
+    parsed.type,
+    parsed.payload,
+    metadata,
+    ws
+  );
+
+  if (!isAuthorized) {
+    return; // Error already sent
+  }
+
+  // Enrich payload with connection context
+  const enrichedPayload = enrichClientEventPayload(
+    parsed.type,
+    parsed.payload,
+    metadata
+  );
+
+  // Route through event system
+  await routeEvent({ type: parsed.type, payload: enrichedPayload }, context);
+}
+```
+
+### Authorization Checks
+
+Client events are validated before routing:
+
+```typescript apps/api/src/ws/socket.ts
+async function validateTypingEventAuthorization(
+  payload: { conversationId: string; visitorId?: string | null },
+  connectionContext: ConnectionContextDetails,
+  ws: SocketContext
+): Promise<boolean> {
+  const conversation = await getConversationById(db, {
+    conversationId: payload.conversationId,
+  });
+
+  if (!conversation) {
+    sendError(ws, { error: "Conversation not found" });
+    return false;
+  }
+
+  // Validate website matches
+  if (conversation.websiteId !== connectionContext.websiteId) {
+    sendError(ws, { error: "Unauthorized" });
+    return false;
+  }
+
+  // Visitors can only type in their own conversations
+  if (
+    connectionContext.visitorId &&
+    !connectionContext.userId &&
+    conversation.visitorId !== connectionContext.visitorId
+  ) {
+    sendError(ws, { error: "Unauthorized" });
+    return false;
+  }
+
+  // Dashboard users can type in any conversation on their website
+  return true;
+}
+```
+
+<Tip>
+  **Security principle**: Never trust client-provided actor identity. Always use the authenticated connection context to populate `userId`, `visitorId`, and `actorType` fields.
+</Tip>
+
+## Pub/Sub Architecture
+
+For multi-server deployments, Cossistant uses Redis pub/sub to coordinate events:
+
+```typescript apps/api/src/ws/realtime-pubsub.ts
+initializeRealtimePubSub({
+  connection: dispatchEventToLocalConnection,
+  visitor: dispatchEventToLocalVisitor,
+  website: dispatchEventToLocalWebsite,
+});
+
+export const sendEventToConnection: ConnectionDispatcher = (
+  connectionId,
+  event
+) => {
+  // Publish to Redis - will be received by server hosting the connection
+  publishToConnection(connectionId, event).catch((error) => {
+    console.error("[RealtimePubSub] Failed to publish", { error });
+  });
+};
+```
+
+<AccordionGroup>
+  <Accordion title="Single-Server Mode">
+    Events are dispatched directly to local connection registry without Redis overhead.
+  </Accordion>
+
+  <Accordion title="Multi-Server Mode">
+    Events are published to Redis channels:
+    - `connection:{connectionId}` - Direct to specific connection
+    - `visitor:{visitorId}` - Broadcast to all visitor connections
+    - `website:{websiteId}` - Broadcast to all dashboard connections
+
+    Each server subscribes to these channels and dispatches to its local connections.
+  </Accordion>
+</AccordionGroup>
+
+## Presence Management
+
+WebSocket connections automatically track user and visitor presence:
+
+```typescript apps/api/src/ws/socket.ts
+async function onMessage(evt, ws) {
+  // Handle presence ping
+  if (evt.data === "presence:ping") {
+    ws.send("pong");
+    await refreshConnectionPresence(metadata);
+    return;
+  }
+}
+
+async function refreshConnectionPresence(
+  metadata: ConnectionContextDetails
+): Promise<void> {
+  const now = new Date().toISOString();
+  const tasks: Promise<unknown>[] = [];
+
+  if (metadata.userId) {
+    tasks.push(
+      markUserPresence({
+        websiteId: metadata.websiteId,
+        userId: metadata.userId,
+        lastSeenAt: now,
+      })
+    );
+  }
+
+  if (metadata.visitorId) {
+    tasks.push(
+      markVisitorPresence({
+        websiteId: metadata.websiteId,
+        visitorId: metadata.visitorId,
+        lastSeenAt: now,
+      })
+    );
+  }
+
+  await Promise.all(tasks);
+}
+```
+
+<Info>
+  Clients should send `presence:ping` every 30-60 seconds to maintain active status. The server responds with `pong` and updates the database `lastSeenAt` timestamp.
+</Info>
+
+## Event Types Reference
+
+<CardGroup cols={2}>
+  <Card title="Connection Events" icon="plug">
+    `userConnected`, `userDisconnected`, `visitorConnected`, `visitorDisconnected`
+  </Card>
+  <Card title="Conversation Events" icon="messages">
+    `conversationCreated`, `conversationUpdated`, `conversationSeen`, `conversationTyping`
+  </Card>
+  <Card title="Timeline Events" icon="list">
+    `timelineItemCreated`, `timelineItemUpdated`, `timelineItemPartUpdated`
+  </Card>
+  <Card title="AI Agent Events" icon="robot">
+    `aiAgentProcessingStarted`, `aiAgentDecisionMade`, `aiAgentProcessingProgress`, `aiAgentProcessingCompleted`
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+```typescript apps/api/src/ws/socket.ts
+function sendError(ws: SocketContext, params: {
+  error: string;
+  message?: string;
+  code?: number;
+}): void {
+  ws.send(
+    JSON.stringify({
+      error: params.error,
+      message: params.message,
+      code: params.code,
+    })
+  );
+}
+
+// Example usage
+if (!conversation) {
+  sendError(ws, {
+    error: "Conversation not found",
+    message: `Conversation ${conversationId} does not exist`,
+  });
+  return false;
+}
+```
+
+<Card title="Next Steps" icon="arrow-right">
+  - [Visitor Identification](/concepts/visitor-identification) - Track and identify visitors
+  - [AI Agents](/concepts/ai-agents) - Understand how AI events flow
+  - [WebSocket API](/api/websocket/overview) - Complete WebSocket API reference
+</Card>

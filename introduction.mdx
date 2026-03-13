@@ -1,0 +1,177 @@
+---
+title: "Introduction"
+description: "Open-source customer support platform with fully customizable AI support agents for developers and startups"
+---
+
+<img
+  className="block dark:hidden rounded-lg border border-gray-200"
+  src="https://github.com/cossistantcom/cossistant/raw/main/github.png"
+  alt="Cossistant Hero"
+/>
+<img
+  className="hidden dark:block rounded-lg border border-gray-800"
+  src="https://github.com/cossistantcom/cossistant/raw/main/github.png"
+  alt="Cossistant Hero"
+/>
+
+## What is Cossistant?
+
+Cossistant is an open-source customer support platform built specifically for developers and startups. It provides a complete support infrastructure with AI-powered agents, real-time messaging, and a flexible React SDK that integrates seamlessly into your application.
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running in 5 minutes with our React SDK
+  </Card>
+  <Card
+    title="AI Agents"
+    icon="sparkles"
+    href="/concepts/ai-agents"
+  >
+    Learn how to configure AI-powered support agents
+  </Card>
+  <Card
+    title="React SDK"
+    icon="react"
+    href="/sdk/react/overview"
+  >
+    Explore the headless React SDK and prebuilt widgets
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/overview"
+  >
+    Browse the complete REST and WebSocket API documentation
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="AI-Powered Support" icon="sparkles">
+    Customize AI agents to handle customer inquiries automatically with knowledge base integration
+  </Card>
+  <Card title="Headless React SDK" icon="cube">
+    Build custom support experiences with hooks, primitives, and prebuilt widgets
+  </Card>
+  <Card title="Real-Time Messaging" icon="bolt">
+    WebSocket-powered real-time communication with typing indicators and read receipts
+  </Card>
+  <Card title="Visitor Tracking" icon="users">
+    Identify and track visitors with metadata for personalized support
+  </Card>
+  <Card title="Knowledge Base" icon="book">
+    Train your AI agents with documentation, FAQs, and support articles
+  </Card>
+  <Card title="Team Collaboration" icon="users-gear">
+    Manage conversations, assign team members, and collaborate on support tickets
+  </Card>
+  <Card title="Self-Hostable" icon="server">
+    Full Docker support for complete control over your support infrastructure
+  </Card>
+  <Card title="Email Integration" icon="envelope">
+    Handle support emails with threading and seamless dashboard integration
+  </Card>
+</CardGroup>
+
+## Why Cossistant?
+
+<AccordionGroup>
+  <Accordion title="Developer-First Approach">
+    Built by developers, for developers. Cossistant provides a code-first, API-driven philosophy with comprehensive documentation and real code examples from the source repository.
+  </Accordion>
+  
+  <Accordion title="Complete Flexibility">
+    Choose between prebuilt widgets for rapid deployment or headless primitives for complete customization. Use our hosted platform or self-host on your own infrastructure.
+  </Accordion>
+  
+  <Accordion title="Open Source">
+    Licensed under AGPL-3.0 for non-commercial use. Full source code available on GitHub with an active community and transparent development process.
+  </Accordion>
+  
+  <Accordion title="Production-Ready">
+    Built on modern technologies including Next.js, React, TypeScript, Hono, tRPC, Drizzle ORM, and Better Auth. Battle-tested in production environments.
+  </Accordion>
+</AccordionGroup>
+
+## Tech Stack
+
+Cossistant is built with cutting-edge technologies:
+
+- **Frontend**: React 19, Next.js 16, TypeScript
+- **Backend**: Hono, tRPC, Drizzle ORM
+- **Database**: PostgreSQL
+- **Real-time**: WebSockets, Redis
+- **Authentication**: Better Auth
+- **AI**: OpenAI, OpenRouter integration
+- **Infrastructure**: Docker, Bun runtime
+
+## Get Started
+
+<Steps>
+  <Step title="Install the SDK">
+    Add the Cossistant React SDK to your project
+    
+    <CodeGroup>
+    ```bash npm
+    npm install @cossistant/react
+    ```
+    
+    ```bash yarn
+    yarn add @cossistant/react
+    ```
+    
+    ```bash pnpm
+    pnpm add @cossistant/react
+    ```
+    
+    ```bash bun
+    bun add @cossistant/react
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Configure your provider">
+    Wrap your app with the SupportProvider component
+    
+    ```tsx
+    import { SupportProvider, Support } from "@cossistant/react";
+    import "@cossistant/react/styles.css";
+    
+    export function App() {
+      return (
+        <SupportProvider>
+          <Support />
+        </SupportProvider>
+      );
+    }
+    ```
+  </Step>
+  
+  <Step title="Start building">
+    Customize the widget, identify visitors, and configure AI agents
+  </Step>
+</Steps>
+
+## Community & Support
+
+<CardGroup cols={2}>
+  <Card
+    title="GitHub"
+    icon="github"
+    href="https://github.com/cossistantcom/cossistant"
+  >
+    View source code, report issues, and contribute
+  </Card>
+  <Card
+    title="Discord"
+    icon="discord"
+    href="https://discord.gg/vQkPjgvzcc"
+  >
+    Join our community for support and discussions
+  </Card>
+</CardGroup>

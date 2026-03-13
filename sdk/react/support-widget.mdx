@@ -1,0 +1,413 @@
+---
+title: 'Support Widget'
+description: 'Complete support widget with chat, routing, and real-time features'
+---
+
+The `Support` component is a fully-featured, production-ready customer support widget. It includes conversation management, real-time messaging, file uploads, and customizable UI.
+
+## Basic Usage
+
+```tsx
+import { SupportProvider, Support } from "@cossistant/react";
+import "@cossistant/react/styles.css";
+
+function App() {
+  return (
+    <SupportProvider>
+      <Support />
+    </SupportProvider>
+  );
+}
+```
+
+## Props
+
+<ParamField path="className" type="string">
+  Additional CSS classes for the root wrapper
+</ParamField>
+
+<ParamField path="theme" type="'light' | 'dark'">
+  Force a specific theme. Omit for automatic detection based on system preferences
+</ParamField>
+
+<ParamField path="side" type="'top' | 'bottom' | 'left' | 'right'" default="top">
+  Which side of the trigger to place the content window
+</ParamField>
+
+<ParamField path="align" type="'start' | 'center' | 'end'" default="end">
+  Alignment along the side axis
+</ParamField>
+
+<ParamField path="sideOffset" type="number" default="16">
+  Distance in pixels between the trigger button and the content window
+</ParamField>
+
+<ParamField path="avoidCollisions" type="boolean" default="true">
+  Enable automatic collision avoidance to keep content within the viewport
+</ParamField>
+
+<ParamField path="collisionPadding" type="number | { top?: number; right?: number; bottom?: number; left?: number }" default="8">
+  Padding from viewport edges when avoiding collisions
+</ParamField>
+
+<ParamField path="classNames" type="object">
+  Granular className overrides for specific parts:
+  - `trigger`: The floating trigger button
+  - `content`: The main content window
+</ParamField>
+
+### Controlled State
+
+<ParamField path="open" type="boolean">
+  Controlled open state. When provided, the widget operates in controlled mode
+</ParamField>
+
+<ParamField path="onOpenChange" type="(open: boolean) => void">
+  Callback fired when the open state should change. Use with `open` prop for controlled mode
+</ParamField>
+
+<ParamField path="defaultOpen" type="boolean" default="false">
+  Whether the widget should open automatically on mount (uncontrolled mode). Ignored when `open` prop is provided
+</ParamField>
+
+### Content Configuration
+
+<ParamField path="quickOptions" type="string[]">
+  Quick reply options displayed to users before they start typing
+</ParamField>
+
+<ParamField path="defaultMessages" type="DefaultMessage[]">
+  Custom welcome messages shown before a conversation starts
+</ParamField>
+
+<ParamField path="locale" type="string">
+  Locale string for widget translations (e.g., `"en"`, `"es"`, `"fr"`)
+</ParamField>
+
+<ParamField path="content" type="SupportTextContentOverrides">
+  Custom text content overrides for internationalization
+</ParamField>
+
+<ParamField path="customPages" type="CustomPage[]">
+  Custom pages to add to the router
+</ParamField>
+
+### Event Callbacks
+
+<ParamField path="onConversationStart" type="(event: ConversationStartEvent) => void">
+  Called when a new conversation is started
+</ParamField>
+
+<ParamField path="onConversationEnd" type="(event: ConversationEndEvent) => void">
+  Called when a conversation ends (resolved, closed, etc.)
+</ParamField>
+
+<ParamField path="onMessageSent" type="(event: MessageSentEvent) => void">
+  Called when the visitor sends a message
+</ParamField>
+
+<ParamField path="onMessageReceived" type="(event: MessageReceivedEvent) => void">
+  Called when a message is received from an agent (human or AI)
+</ParamField>
+
+<ParamField path="onError" type="(event: ErrorEvent) => void">
+  Called when an error occurs within the widget
+</ParamField>
+
+## Examples
+
+### Controlled Mode
+
+Manage the widget's open state externally:
+
+```tsx
+import { useState } from "react";
+import { Support } from "@cossistant/react";
+
+function App() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <button onClick={() => setIsOpen(true)}>Open Support</button>
+      <Support open={isOpen} onOpenChange={setIsOpen} />
+    </>
+  );
+}
+```
+
+### Custom Positioning
+
+Position the widget in different locations:
+
+```tsx
+<Support
+  side="bottom"
+  align="end"
+  sideOffset={8}
+  collisionPadding={{ bottom: 20, right: 20 }}
+/>
+```
+
+### Dark Theme
+
+```tsx
+<Support theme="dark" />
+```
+
+### Quick Options & Welcome Messages
+
+```tsx
+import { Support } from "@cossistant/react";
+import { SenderType } from "@cossistant/types";
+
+function App() {
+  return (
+    <Support
+      quickOptions={[
+        "I have a billing question",
+        "I need technical support",
+        "I want to request a feature",
+      ]}
+      defaultMessages={[
+        {
+          content: "Welcome to our support! How can we help you today?",
+          senderType: SenderType.TeamMember,
+        },
+      ]}
+    />
+  );
+}
+```
+
+### Event Handling
+
+```tsx
+import { Support } from "@cossistant/react";
+
+function App() {
+  return (
+    <Support
+      onConversationStart={(event) => {
+        console.log("Conversation started:", event.conversationId);
+        // Track analytics
+      }}
+      onMessageSent={(event) => {
+        console.log("Message sent:", event.message);
+      }}
+      onMessageReceived={(event) => {
+        console.log("Message received from:", event.senderType);
+      }}
+      onError={(event) => {
+        console.error("Support error:", event.error);
+      }}
+    />
+  );
+}
+```
+
+### Custom Styling
+
+```tsx
+<Support
+  className="my-support-widget"
+  classNames={{
+    trigger: "bg-purple-600 hover:bg-purple-700",
+    content: "border-purple-200 shadow-xl",
+  }}
+/>
+```
+
+## Imperative API
+
+Use a ref to control the widget programmatically:
+
+```tsx
+import { useRef } from "react";
+import { Support, type SupportHandle } from "@cossistant/react";
+
+function App() {
+  const supportRef = useRef<SupportHandle>(null);
+
+  return (
+    <>
+      <button onClick={() => supportRef.current?.open()}>
+        Open Support
+      </button>
+      <button onClick={() => supportRef.current?.close()}>
+        Close Support
+      </button>
+      <button onClick={() => supportRef.current?.startConversation("Hello!")}>
+        Start Conversation
+      </button>
+      
+      <Support ref={supportRef} />
+    </>
+  );
+}
+```
+
+### SupportHandle Methods
+
+<ParamField path="open" type="() => void">
+  Opens the support widget
+</ParamField>
+
+<ParamField path="close" type="() => void">
+  Closes the support widget
+</ParamField>
+
+<ParamField path="toggle" type="() => void">
+  Toggles the widget open/closed state
+</ParamField>
+
+<ParamField path="startConversation" type="(initialMessage?: string) => void">
+  Starts a new conversation with an optional initial message
+</ParamField>
+
+## Compound Components
+
+For advanced customization, use compound components:
+
+### Custom Trigger
+
+Replace the default floating button:
+
+```tsx
+import { Support } from "@cossistant/react";
+
+function App() {
+  return (
+    <Support>
+      <Support.Trigger className="px-4 py-2 bg-blue-500">
+        {({ isOpen, unreadCount }) => (
+          <span>
+            {isOpen ? "Close" : `Help`}
+            {unreadCount > 0 && (
+              <span className="ml-2 badge">{unreadCount}</span>
+            )}
+          </span>
+        )}
+      </Support.Trigger>
+    </Support>
+  );
+}
+```
+
+### Custom Pages
+
+Add custom routes to the widget:
+
+```tsx
+import { Support } from "@cossistant/react";
+
+function FAQPage() {
+  return (
+    <div>
+      <h2>Frequently Asked Questions</h2>
+      {/* FAQ content */}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <Support>
+      <Support.Page name="FAQ" component={FAQPage} />
+    </Support>
+  );
+}
+```
+
+### Full Composition Mode
+
+For complete control over structure:
+
+```tsx
+import { Support } from "@cossistant/react";
+
+function App() {
+  return (
+    <Support.Root defaultOpen={false}>
+      <Support.Trigger asChild>
+        <button className="custom-button">Help</button>
+      </Support.Trigger>
+      
+      <Support.Content side="bottom" align="end">
+        <Support.Router />
+      </Support.Content>
+    </Support.Root>
+  );
+}
+```
+
+## Header & Footer Slots
+
+Inject custom content into the widget header or footer:
+
+```tsx
+import { Support } from "@cossistant/react";
+
+function App() {
+  return (
+    <Support>
+      <Support.Header>
+        <div className="custom-header">
+          <img src="/logo.svg" alt="Company Logo" />
+        </div>
+      </Support.Header>
+      
+      <Support.Footer>
+        <div className="custom-footer">
+          <a href="/privacy">Privacy Policy</a>
+        </div>
+      </Support.Footer>
+    </Support>
+  );
+}
+```
+
+## Localization
+
+The widget supports multiple languages:
+
+```tsx
+import { Support } from "@cossistant/react";
+
+function App() {
+  return (
+    <Support
+      locale="es"
+      content={{
+        es: {
+          "support.welcome": "¡Bienvenido!",
+          "support.placeholder": "Escribe tu mensaje...",
+          // Override other keys
+        },
+      }}
+    />
+  );
+}
+```
+
+Supported locales: `en` (English), `es` (Spanish), `fr` (French)
+
+## Best Practices
+
+<Card title="Performance" icon="gauge-high">
+  - The widget is lazy-loaded and doesn't impact initial page load
+  - Real-time updates are throttled to prevent excessive re-renders
+  - File uploads are validated before processing
+</Card>
+
+<Card title="Accessibility" icon="universal-access">
+  - All interactive elements are keyboard accessible
+  - ARIA labels are provided for screen readers
+  - Focus management is handled automatically
+</Card>
+
+<Card title="Mobile Support" icon="mobile">
+  - The widget automatically adapts to mobile viewports
+  - Touch gestures are fully supported
+  - File uploads work on mobile devices
+</Card>

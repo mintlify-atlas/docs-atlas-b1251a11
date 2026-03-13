@@ -1,0 +1,601 @@
+---
+title: Database Setup
+description: Initialize and manage your PostgreSQL database
+icon: database
+---
+
+## Overview
+
+Cossistant uses PostgreSQL 17 with the pgvector extension for storing application data and vector embeddings. This guide covers database initialization, migrations, and maintenance.
+
+## Prerequisites
+
+- PostgreSQL 17+ installed and running
+- pgvector extension available
+- Database credentials configured in `.env`
+- Bun runtime installed
+
+## Database Architecture
+
+Cossistant uses:
+
+- **Drizzle ORM**: Type-safe database queries and schema management
+- **PostgreSQL**: Primary relational database
+- **pgvector**: Vector similarity search for AI embeddings
+- **Redis**: Query result caching (600s TTL by default)
+
+## Installing PostgreSQL with pgvector
+
+### Using Docker (Recommended)
+
+The included `docker-compose.yml` provides PostgreSQL with pgvector:
+
+```bash
+docker-compose up -d postgres
+```
+
+This starts PostgreSQL 17 with pgvector using the official `pgvector/pgvector:pg17` image.
+
+### Manual Installation
+
+<Tabs>
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    # Add PostgreSQL APT repository
+    sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+    sudo apt update
+    
+    # Install PostgreSQL 17
+    sudo apt install -y postgresql-17 postgresql-contrib-17
+    
+    # Install pgvector
+    sudo apt install -y postgresql-17-pgvector
+    
+    # Start PostgreSQL
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    # Install PostgreSQL using Homebrew
+    brew install postgresql@17
+    
+    # Install pgvector
+    brew install pgvector
+    
+    # Start PostgreSQL
+    brew services start postgresql@17
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    1. Download PostgreSQL 17 installer from [postgresql.org](https://www.postgresql.org/download/windows/)
+    2. Run the installer and complete setup
+    3. Download pgvector binaries from [pgvector releases](https://github.com/pgvector/pgvector/releases)
+    4. Copy pgvector files to PostgreSQL installation directory
+  </Tab>
+</Tabs>
+
+### Verify pgvector Installation
+
+```sql
+-- Connect to your database
+psql -U postgres -d cossistant
+
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Verify installation
+SELECT * FROM pg_extension WHERE extname = 'vector';
+```
+
+## Creating the Database
+
+### Using psql
+
+```bash
+# Connect to PostgreSQL
+psql -U postgres
+
+# Create database
+CREATE DATABASE cossistant;
+
+# Create user (if needed)
+CREATE USER cossistant_user WITH PASSWORD 'your_secure_password';
+
+# Grant privileges
+GRANT ALL PRIVILEGES ON DATABASE cossistant TO cossistant_user;
+
+# Connect to the database
+\c cossistant
+
+# Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+# Exit
+\q
+```
+
+### Using Docker
+
+The Docker Compose setup automatically creates the database:
+
+```yaml docker-compose.yml
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cossistant  # Database created automatically
+```
+
+## Environment Configuration
+
+Configure database connection in `.env`:
+
+```bash .env
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USERNAME=postgres
+DATABASE_PASSWORD=postgres
+DATABASE_NAME=cossistant
+```
+
+### SSL Connections
+
+In production, the API automatically enables SSL:
+
+```typescript apps/api/src/db/index.ts
+const createDb = () => {
+  return drizzle({
+    connection: {
+      host: env.DATABASE_HOST,
+      port: env.DATABASE_PORT,
+      user: env.DATABASE_USERNAME,
+      password: env.DATABASE_PASSWORD,
+      database: env.DATABASE_NAME,
+      ssl: env.NODE_ENV === "production" 
+        ? { rejectUnauthorized: false } 
+        : false,
+    },
+    cache: bunRedisCache({ config: { ex: 600 } }),
+    schema,
+  });
+};
+```
+
+For stricter SSL validation, modify the connection settings.
+
+## Running Migrations
+
+### Automatic Migration Script
+
+The recommended way to run migrations:
+
+```bash
+bun run apps/api/scripts/migrate.ts
+```
+
+This script:
+1. Connects to your database using environment variables
+2. Runs all pending migrations from `apps/api/drizzle/migrations/`
+3. Exits with appropriate status code
+
+### Migration Script Details
+
+```typescript apps/api/scripts/migrate.ts
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { db } from "../src/db";
+
+const main = async () => {
+  try {
+    await migrate(db, {
+      migrationsFolder: `${__dirname}/../drizzle/migrations`,
+    });
+    console.log("Migration completed");
+    process.exit(0);
+  } catch (error) {
+    console.error("Error during migration:", error);
+    process.exit(1);
+  }
+};
+
+void main();
+```
+
+### Using Drizzle Kit
+
+Alternatively, use Drizzle Kit directly:
+
+```bash
+# Push schema changes (development)
+cd apps/api
+bun run drizzle-kit push
+
+# Generate new migration
+bun run drizzle-kit generate
+
+# Apply migrations
+bun run db:migrate
+```
+
+### NPM Scripts
+
+Available database scripts in `apps/api/package.json`:
+
+```json
+{
+  "scripts": {
+    "db:migrate": "bun run scripts/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "bun run scripts/seed.ts",
+    "generate": "drizzle-kit generate"
+  }
+}
+```
+
+## Database Schema
+
+The schema is defined in `apps/api/src/db/schema/` and includes:
+
+### Core Tables
+
+- **ai_agent**: AI agent configurations
+- **api_key**: API authentication keys
+- **account**: OAuth account connections
+- **session**: User sessions
+- **user**: User accounts
+- **organization**: Multi-tenant organizations
+- **website**: Website installations
+
+### Messaging Tables
+
+- **conversation**: Chat conversations
+- **message**: Individual messages
+- **visitor**: Website visitors
+- **email_bounce**: Email delivery tracking
+
+### Knowledge Base Tables
+
+- **knowledge**: Knowledge base entries
+- **chunk**: Document chunks for RAG
+- **link_source**: External link sources
+- **ai_agent_prompt_document**: AI prompt templates
+
+### Additional Tables
+
+- **feedback**: User feedback
+- **verification**: Email/phone verification
+- **notification**: Push notifications
+
+### Example: Conversation Table
+
+```sql
+CREATE TABLE "conversation" (
+  "id" varchar(26) PRIMARY KEY NOT NULL,
+  "organization_id" varchar(26) NOT NULL,
+  "website_id" varchar(26) NOT NULL,
+  "visitor_id" varchar(26),
+  "assigned_to" varchar(26),
+  "status" conversation_status DEFAULT 'open' NOT NULL,
+  "priority" conversation_priority DEFAULT 'normal' NOT NULL,
+  "subject" text,
+  "tags" text[],
+  "metadata" jsonb,
+  "first_message_at" timestamp,
+  "last_message_at" timestamp,
+  "resolved_at" timestamp,
+  "created_at" timestamp NOT NULL,
+  "updated_at" timestamp NOT NULL
+);
+```
+
+## Seeding Data
+
+Populate your database with test data:
+
+```bash
+# Seed initial data
+bun run apps/api/scripts/seed.ts
+
+# Seed visitor data (for testing)
+bun run apps/api/scripts/seed-visitors.ts
+```
+
+<Warning>
+  **Production Warning**: Never run seed scripts in production. They're designed for development and testing only.
+</Warning>
+
+## Database Studio
+
+Drizzle Studio provides a visual interface for your database:
+
+```bash
+cd apps/api
+bun run db:studio
+```
+
+This opens a web interface at `https://local.drizzle.studio` where you can:
+- Browse tables and data
+- Run queries
+- Edit records
+- View relationships
+
+## Backup and Restore
+
+### Creating Backups
+
+```bash
+# Full database backup
+pg_dump -U postgres -d cossistant -F c -b -v -f backup_$(date +%Y%m%d_%H%M%S).dump
+
+# SQL format backup
+pg_dump -U postgres -d cossistant > backup_$(date +%Y%m%d).sql
+
+# Compressed SQL backup
+pg_dump -U postgres -d cossistant | gzip > backup_$(date +%Y%m%d).sql.gz
+
+# Backup specific tables
+pg_dump -U postgres -d cossistant -t conversation -t message > messages_backup.sql
+```
+
+### Docker Backup
+
+```bash
+# Backup from Docker container
+docker-compose exec postgres pg_dump -U postgres cossistant > backup.sql
+
+# Backup with compression
+docker-compose exec postgres pg_dump -U postgres cossistant | gzip > backup.sql.gz
+
+# Backup to container and copy out
+docker-compose exec postgres pg_dump -U postgres cossistant -F c -f /tmp/backup.dump
+docker cp cossistant-postgres-1:/tmp/backup.dump ./backup.dump
+```
+
+### Restoring Backups
+
+```bash
+# Restore from SQL file
+psql -U postgres -d cossistant < backup.sql
+
+# Restore from compressed SQL
+gunzip -c backup.sql.gz | psql -U postgres -d cossistant
+
+# Restore from custom format
+pg_restore -U postgres -d cossistant -v backup.dump
+
+# Drop and recreate database before restore
+dropdb -U postgres cossistant
+createdb -U postgres cossistant
+psql -U postgres -d cossistant -c "CREATE EXTENSION IF NOT EXISTS vector;"
+psql -U postgres -d cossistant < backup.sql
+```
+
+### Docker Restore
+
+```bash
+# Restore to Docker container
+docker-compose exec -T postgres psql -U postgres cossistant < backup.sql
+
+# Restore compressed backup
+gunzip -c backup.sql.gz | docker-compose exec -T postgres psql -U postgres cossistant
+```
+
+## Automated Backup Strategy
+
+Create a cron job for daily backups:
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add daily backup at 2 AM
+0 2 * * * /usr/bin/pg_dump -U postgres cossistant | gzip > /backups/cossistant_$(date +\%Y\%m\%d).sql.gz
+
+# Keep only last 7 days
+0 3 * * * find /backups -name "cossistant_*.sql.gz" -mtime +7 -delete
+```
+
+### Backup to S3
+
+```bash
+#!/bin/bash
+# backup-to-s3.sh
+
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="cossistant_${DATE}.sql.gz"
+
+# Create backup
+pg_dump -U postgres cossistant | gzip > "/tmp/${BACKUP_FILE}"
+
+# Upload to S3
+aws s3 cp "/tmp/${BACKUP_FILE}" "s3://your-backup-bucket/database/${BACKUP_FILE}"
+
+# Cleanup
+rm "/tmp/${BACKUP_FILE}"
+
+echo "Backup completed: ${BACKUP_FILE}"
+```
+
+## Performance Optimization
+
+### Query Caching
+
+Cossistant uses Redis for query result caching:
+
+```typescript apps/api/src/db/index.ts
+const createDb = () => {
+  return drizzle({
+    // ...
+    cache: bunRedisCache({
+      config: { ex: 600 }, // 10 minute cache TTL
+    }),
+    schema,
+  });
+};
+```
+
+### Indexes
+
+The migration files include optimized indexes for:
+- Foreign key relationships
+- Frequently queried columns
+- Full-text search fields
+- Vector similarity search
+
+### Connection Pooling
+
+Drizzle ORM manages connection pooling automatically. For high-traffic deployments, consider using PgBouncer:
+
+```bash
+# Install PgBouncer
+sudo apt install pgbouncer
+
+# Configure /etc/pgbouncer/pgbouncer.ini
+[databases]
+cossistant = host=localhost port=5432 dbname=cossistant
+
+[pgbouncer]
+listen_port = 6432
+listen_addr = 127.0.0.1
+auth_type = md5
+pool_mode = transaction
+max_client_conn = 1000
+default_pool_size = 20
+
+# Update DATABASE_PORT in .env
+DATABASE_PORT=6432
+```
+
+## Monitoring
+
+### Query Performance
+
+```sql
+-- Find slow queries
+SELECT 
+  query,
+  calls,
+  total_time,
+  mean_time,
+  max_time
+FROM pg_stat_statements
+ORDER BY mean_time DESC
+LIMIT 10;
+
+-- Current active queries
+SELECT 
+  pid,
+  age(clock_timestamp(), query_start) as duration,
+  usename,
+  query
+FROM pg_stat_activity
+WHERE state != 'idle'
+ORDER BY duration DESC;
+```
+
+### Database Size
+
+```sql
+-- Total database size
+SELECT 
+  pg_size_pretty(pg_database_size('cossistant')) as size;
+
+-- Table sizes
+SELECT 
+  schemaname,
+  tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+```
+
+### Connection Count
+
+```sql
+-- Current connections
+SELECT 
+  count(*) as connections,
+  usename,
+  state
+FROM pg_stat_activity
+GROUP BY usename, state;
+```
+
+## Troubleshooting
+
+### Connection Refused
+
+```bash
+# Check PostgreSQL is running
+sudo systemctl status postgresql
+
+# Check port is listening
+sudo netstat -plnt | grep 5432
+
+# Test connection
+psql -U postgres -h localhost -d cossistant -c "SELECT 1;"
+```
+
+### Authentication Failed
+
+```bash
+# Check pg_hba.conf
+sudo nano /etc/postgresql/17/main/pg_hba.conf
+
+# Add or modify:
+# local   all   all                     md5
+# host    all   all   127.0.0.1/32     md5
+
+# Reload PostgreSQL
+sudo systemctl reload postgresql
+```
+
+### Migration Errors
+
+```bash
+# Check current migration status
+psql -U postgres -d cossistant -c "SELECT * FROM drizzle.__drizzle_migrations;"
+
+# Manually fix migration table
+psql -U postgres -d cossistant
+
+# Reset migrations (DANGER: only in development)
+DROP SCHEMA drizzle CASCADE;
+
+# Re-run migrations
+bun run apps/api/scripts/migrate.ts
+```
+
+### pgvector Not Found
+
+```bash
+# Install pgvector extension
+psql -U postgres -d cossistant
+
+CREATE EXTENSION IF NOT EXISTS vector;
+
+# Verify installation
+SELECT * FROM pg_available_extensions WHERE name = 'vector';
+```
+
+<Warning>
+  **Data Loss Prevention**: Always backup your database before running migrations or making schema changes in production.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="sliders" href="/self-hosting/environment-variables">
+    Configure all required settings
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/self-hosting/docker">
+    Deploy with Docker Compose
+  </Card>
+</CardGroup>

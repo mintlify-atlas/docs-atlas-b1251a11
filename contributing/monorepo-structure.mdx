@@ -1,0 +1,396 @@
+---
+title: Monorepo Structure
+description: Understanding Cossistant's monorepo organization and workspace architecture
+icon: folder-tree
+---
+
+Cossistant uses a **Turborepo-based monorepo** to manage multiple packages, applications, and examples in a single repository. This guide explains the structure and how different parts work together.
+
+## High-Level Overview
+
+The monorepo is organized into four main workspace groups:
+
+<CardGroup cols={2}>
+  <Card title="apps/" icon="window">
+    Production applications (web, API, workers)
+  </Card>
+  <Card title="packages/" icon="box">
+    Shared libraries and SDKs
+  </Card>
+  <Card title="examples/" icon="code">
+    Example integrations and demos
+  </Card>
+  <Card title="tinybird/" icon="chart-line">
+    Analytics and data pipelines
+  </Card>
+</CardGroup>
+
+## Directory Structure
+
+```
+cossistant/
+├── apps/
+│   ├── api/                 # Hono API server
+│   ├── web/                 # Next.js web application
+│   ├── workers/             # Background job workers
+│   └── facehash-landing/    # Facehash product landing page
+├── packages/
+│   ├── react/               # @cossistant/react SDK
+│   ├── next/                # @cossistant/next SDK
+│   ├── core/                # Core shared utilities
+│   ├── types/               # Shared TypeScript types
+│   ├── transactional/       # Email templates
+│   ├── location/            # Location services
+│   ├── facehash/            # Facehash package
+│   ├── globe/               # 3D globe component
+│   ├── tiny-markdown/       # Markdown utilities
+│   ├── redis/               # Redis utilities
+│   ├── jobs/                # Job definitions
+│   ├── release/             # Release automation
+│   └── typescript-config/   # Shared tsconfig
+├── examples/
+│   └── nextjs-tailwind/     # Next.js + Tailwind example
+├── tinybird/                # Analytics pipelines
+├── scripts/                 # Build and automation scripts
+├── .github/                 # CI/CD workflows
+└── docs/                    # Documentation markdown
+```
+
+## Workspaces
+
+### Apps
+
+Production applications that run Cossistant services.
+
+<Accordion title="apps/api - Hono API Server">
+  The main backend API built with [Hono](https://hono.dev/).
+  
+  **Key Features:**
+  - REST and tRPC endpoints
+  - WebSocket server for real-time messaging
+  - Better Auth authentication
+  - Drizzle ORM for database operations
+  - Redis caching
+  - S3 file uploads
+  
+  **Build Output:** `server` (Hono server bundle)
+  
+  **Dependencies:** `@cossistant/core`, `@cossistant/types`, `@cossistant/redis`
+</Accordion>
+
+<Accordion title="apps/web - Next.js Web Application">
+  The main Cossistant dashboard and admin interface.
+  
+  **Key Features:**
+  - Next.js App Router
+  - Server and client components
+  - Authentication with Better Auth
+  - Consumes @cossistant/react and @cossistant/next
+  
+  **Build Output:** `.next/` directory
+  
+  **Dependencies:** `@cossistant/react`, `@cossistant/next`, `@cossistant/core`
+</Accordion>
+
+<Accordion title="apps/workers - Background Jobs">
+  Background worker processes for async operations.
+  
+  **Key Features:**
+  - QStash queue integration
+  - Email sending
+  - Data processing
+  - Scheduled tasks
+  
+  **Dependencies:** `@cossistant/core`, `@cossistant/jobs`, `@cossistant/transactional`
+</Accordion>
+
+### Packages
+
+Reusable libraries and SDKs shared across applications.
+
+<AccordionGroup>
+  <Accordion title="@cossistant/react - React SDK">
+    The core React SDK with headless hooks and primitives.
+    
+    **Exports:**
+    - `useCossistant()` - Main chat hook
+    - `useMessages()` - Message management
+    - `useConversation()` - Conversation state
+    - Primitive components
+    
+    **Build Tool:** tsdown (TypeScript bundler)
+    
+    **Output:** ESM + CJS + TypeScript declarations
+  </Accordion>
+  
+  <Accordion title="@cossistant/next - Next.js SDK">
+    Next.js-specific bindings and utilities.
+    
+    **Features:**
+    - Server Components support
+    - Route handlers
+    - Middleware integration
+    - ISR and SSR helpers
+    
+    **Dependencies:** `@cossistant/react`
+  </Accordion>
+  
+  <Accordion title="@cossistant/core - Core Utilities">
+    Shared utilities and helpers used across all packages.
+    
+    **Includes:**
+    - API client
+    - Type guards
+    - Validation schemas
+    - Constants
+  </Accordion>
+  
+  <Accordion title="@cossistant/types - TypeScript Types">
+    Shared TypeScript type definitions.
+    
+    **Exports:**
+    - API request/response types
+    - Domain models
+    - Configuration types
+    - Utility types
+  </Accordion>
+  
+  <Accordion title="@cossistant/transactional - Email Templates">
+    React Email templates for transactional emails.
+    
+    **Templates:**
+    - Welcome email
+    - Password reset
+    - Team invitations
+    - Notifications
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+Example applications demonstrating Cossistant integration.
+
+<Accordion title="examples/nextjs-tailwind">
+  A complete Next.js application with Tailwind CSS showing how to integrate Cossistant.
+  
+  **Demonstrates:**
+  - SDK installation and setup
+  - Chat widget integration
+  - Custom styling
+  - API key configuration
+  - Production deployment
+</Accordion>
+
+## Build System
+
+### Turborepo Configuration
+
+The monorepo uses [Turborepo](https://turbo.build/repo) for task orchestration and caching.
+
+**Key Configuration (`turbo.json`):**
+
+```json
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "check-types": {
+      "dependsOn": ["^check-types"]
+    }
+  }
+}
+```
+
+### Build Order
+
+Turborepo automatically determines the correct build order based on dependencies:
+
+<Steps>
+  <Step title="Foundation Packages">
+    `@cossistant/types`, `@cossistant/typescript-config`, `@cossistant/core`
+  </Step>
+  
+  <Step title="SDK Packages">
+    `@cossistant/react` → `@cossistant/next`
+  </Step>
+  
+  <Step title="Service Packages">
+    `@cossistant/redis`, `@cossistant/jobs`, `@cossistant/transactional`
+  </Step>
+  
+  <Step title="Applications">
+    `apps/api`, `apps/web`, `apps/workers`
+  </Step>
+</Steps>
+
+### Package Manager
+
+Cossistant uses **Bun** as the package manager:
+
+```json package.json
+{
+  "packageManager": "bun@1.2.22",
+  "workspaces": [
+    "apps/*",
+    "examples/*",
+    "packages/*",
+    "tinybird"
+  ]
+}
+```
+
+## Dependency Management
+
+### Internal Dependencies
+
+Packages reference each other using workspace protocol:
+
+```json packages/next/package.json
+{
+  "dependencies": {
+    "@cossistant/react": "workspace:*",
+    "@cossistant/core": "workspace:*"
+  }
+}
+```
+
+### Shared Dependencies
+
+Common dependencies are hoisted to the root:
+
+- `react` and `react-dom`
+- `typescript`
+- `@biomejs/biome`
+- Development tools
+
+### Version Overrides
+
+Specific versions are pinned using overrides:
+
+```json package.json
+{
+  "overrides": {
+    "@ai-sdk/provider": "3.0.4",
+    "@polar-sh/sdk": "^0.44.0"
+  }
+}
+```
+
+## Task Runners
+
+### Common Commands
+
+<CodeGroup>
+```bash Build All
+# Build all packages and apps
+bun run build
+```
+
+```bash Dev Mode
+# Start all services in watch mode
+bun run dev
+```
+
+```bash Type Check
+# Check TypeScript types across monorepo
+bun run check-types
+```
+
+```bash Lint
+# Lint all code with Biome
+bun run lint
+```
+</CodeGroup>
+
+### Filtered Commands
+
+Run commands for specific workspaces:
+
+<CodeGroup>
+```bash Single Package
+# Build only the React SDK
+bun run build --filter @cossistant/react
+```
+
+```bash With Dependencies
+# Build Next SDK and all its dependencies
+bun run build --filter @cossistant/next...
+```
+
+```bash Multiple Packages
+# Build both SDKs
+bun run build --filter @cossistant/react --filter @cossistant/next
+```
+</CodeGroup>
+
+## Continuous Integration
+
+### GitHub Actions
+
+The CI pipeline runs on every PR and push to main:
+
+**`.github/workflows/ci.yml`:**
+
+<Steps>
+  <Step title="Setup">
+    - Checkout code
+    - Setup Node.js 22
+    - Setup Bun 1.3.1
+    - Install dependencies with frozen lockfile
+  </Step>
+  
+  <Step title="Type Check">
+    Run `bun run check-types` to validate TypeScript
+  </Step>
+  
+  <Step title="Build Example">
+    Build the example app to ensure SDK integration works
+  </Step>
+</Steps>
+
+### Release Automation
+
+Releases use [Changesets](https://github.com/changesets/changesets) for version management:
+
+```bash
+# Create a changeset
+bun run changeset
+
+# Version packages
+bun run changeset:version
+
+# Publish to npm
+bun run changeset:publish
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Keep Packages Focused" icon="bullseye">
+    Each package should have a single, well-defined responsibility
+  </Card>
+  
+  <Card title="Minimize Dependencies" icon="minimize">
+    Only add dependencies when necessary to keep bundle sizes small
+  </Card>
+  
+  <Card title="Use Workspace Protocol" icon="link">
+    Always use `workspace:*` for internal package references
+  </Card>
+  
+  <Card title="Document Exports" icon="book">
+    Clearly document all public APIs and exports
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<Card title="Code Style Guide" icon="palette" href="/contributing/code-style">
+  Learn about coding standards, formatting rules, and best practices
+</Card>

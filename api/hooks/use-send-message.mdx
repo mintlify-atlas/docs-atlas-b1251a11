@@ -1,0 +1,524 @@
+---
+title: 'useSendMessage'
+description: 'Send messages with optimistic updates in React'
+---
+
+# useSendMessage
+
+React hook for sending messages to conversations with automatic optimistic updates, file uploads, and error handling.
+
+## Import
+
+```typescript
+import { useSendMessage } from '@cossistant/react';
+```
+
+## Basic Usage
+
+```tsx
+import { useSendMessage } from '@cossistant/react';
+
+function MessageComposer({ conversationId }) {
+  const [message, setMessage] = useState('');
+  const { mutate, isPending, error } = useSendMessage();
+  
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    mutate({
+      conversationId,
+      message,
+      onSuccess: () => {
+        setMessage('');
+      }
+    });
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        disabled={isPending}
+      />
+      <button type="submit" disabled={isPending || !message.trim()}>
+        {isPending ? 'Sending...' : 'Send'}
+      </button>
+      {error && <div className="error">{error.message}</div>}
+    </form>
+  );
+}
+```
+
+## API Reference
+
+### Parameters
+
+<ParamField path="options" type="object">
+  Optional configuration
+  
+  <Expandable title="Options">
+    <ParamField path="client" type="CossistantClient">
+      Optional custom client instance (usually not needed)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Return Value
+
+<ResponseField name="mutate" type="function">
+  Fire-and-forget message send
+  
+  ```typescript
+  mutate(options: SendMessageOptions) => void
+  ```
+</ResponseField>
+
+<ResponseField name="mutateAsync" type="function">
+  Promise-based message send
+  
+  ```typescript
+  mutateAsync(options: SendMessageOptions) => Promise<SendMessageResult | null>
+  ```
+</ResponseField>
+
+<ResponseField name="isPending" type="boolean">
+  Whether a message is currently being sent
+</ResponseField>
+
+<ResponseField name="isUploading" type="boolean">
+  Whether files are currently being uploaded
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  Error if the send failed
+</ResponseField>
+
+<ResponseField name="reset" type="function">
+  Reset error state
+  
+  ```typescript
+  reset() => void
+  ```
+</ResponseField>
+
+### Send Message Options
+
+<ParamField path="conversationId" type="string">
+  Optional conversation ID. If not provided, a new conversation is created.
+</ParamField>
+
+<ParamField path="message" type="string" required>
+  Message text content
+</ParamField>
+
+<ParamField path="files" type="File[]">
+  Optional array of files to attach
+</ParamField>
+
+<ParamField path="defaultTimelineItems" type="TimelineItem[]">
+  Optional initial messages for new conversations
+</ParamField>
+
+<ParamField path="visitorId" type="string">
+  Optional visitor ID (usually inferred from context)
+</ParamField>
+
+<ParamField path="messageId" type="string">
+  Optional custom message ID for idempotency
+</ParamField>
+
+<ParamField path="onSuccess" type="function">
+  Callback invoked on successful send
+  
+  ```typescript
+  (conversationId: string, messageId: string) => void
+  ```
+</ParamField>
+
+<ParamField path="onError" type="function">
+  Callback invoked on error
+  
+  ```typescript
+  (error: Error) => void
+  ```
+</ParamField>
+
+<ParamField path="onConversationInitiated" type="function">
+  Callback invoked when a new conversation is created (before API call)
+  
+  ```typescript
+  (conversationId: string) => void
+  ```
+</ParamField>
+
+## Examples
+
+### Send to Existing Conversation
+
+```tsx
+function ChatInput({ conversationId }) {
+  const [text, setText] = useState('');
+  const { mutate, isPending } = useSendMessage();
+  
+  const send = () => {
+    mutate({
+      conversationId,
+      message: text,
+      onSuccess: () => setText('')
+    });
+  };
+  
+  return (
+    <div>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyPress={(e) => e.key === 'Enter' && send()}
+      />
+      <button onClick={send} disabled={isPending}>
+        Send
+      </button>
+    </div>
+  );
+}
+```
+
+### Start New Conversation
+
+```tsx
+function NewConversation() {
+  const [message, setMessage] = useState('');
+  const { mutate } = useSendMessage();
+  
+  const startChat = () => {
+    mutate({
+      message,
+      // No conversationId - creates new conversation
+      onSuccess: (conversationId) => {
+        console.log('Started conversation:', conversationId);
+        navigateToConversation(conversationId);
+      }
+    });
+  };
+  
+  return (
+    <div>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Start a conversation..."
+      />
+      <button onClick={startChat}>
+        Start Chat
+      </button>
+    </div>
+  );
+}
+```
+
+### Send with File Attachments
+
+```tsx
+function FileUpload({ conversationId }) {
+  const [files, setFiles] = useState<File[]>([]);
+  const { mutate, isUploading, isPending } = useSendMessage();
+  
+  const send = () => {
+    mutate({
+      conversationId,
+      message: files.length > 0 ? 'Attached files' : 'Message without files',
+      files,
+      onSuccess: () => setFiles([])
+    });
+  };
+  
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        onChange={(e) => setFiles(Array.from(e.target.files || []))}
+      />
+      {files.length > 0 && (
+        <ul>
+          {files.map((file, i) => (
+            <li key={i}>{file.name} ({file.size} bytes)</li>
+          ))}
+        </ul>
+      )}
+      <button onClick={send} disabled={isPending || isUploading}>
+        {isUploading ? 'Uploading...' : isPending ? 'Sending...' : 'Send'}
+      </button>
+    </div>
+  );
+}
+```
+
+### Async with Error Handling
+
+```tsx
+function AsyncSend({ conversationId }) {
+  const { mutateAsync, error, reset } = useSendMessage();
+  
+  const send = async (text: string) => {
+    try {
+      reset(); // Clear previous errors
+      
+      const result = await mutateAsync({
+        conversationId,
+        message: text
+      });
+      
+      if (result) {
+        console.log('Message sent:', result.messageId);
+      }
+    } catch (err) {
+      console.error('Failed to send:', err);
+    }
+  };
+  
+  return (
+    <div>
+      <button onClick={() => send('Hello!')}>
+        Send
+      </button>
+      {error && (
+        <div className="error">
+          {error.message}
+          <button onClick={reset}>Dismiss</button>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### With Initial Messages
+
+```tsx
+function StartConversationWithContext() {
+  const { mutate } = useSendMessage();
+  
+  const startSupport = () => {
+    mutate({
+      message: 'I need help with my account',
+      defaultTimelineItems: [
+        {
+          type: 'event',
+          text: 'Customer visited from pricing page',
+          visibility: 'private'
+        }
+      ],
+      onSuccess: (conversationId) => {
+        console.log('Created with context:', conversationId);
+      }
+    });
+  };
+  
+  return <button onClick={startSupport}>Get Support</button>;
+}
+```
+
+### Optimistic UI Updates
+
+```tsx
+function OptimisticMessages({ conversationId }) {
+  const [messages, setMessages] = useState([]);
+  const { mutate } = useSendMessage();
+  
+  const send = (text: string) => {
+    // Add optimistic message
+    const optimisticId = `temp-${Date.now()}`;
+    setMessages(prev => [...prev, {
+      id: optimisticId,
+      text,
+      pending: true
+    }]);
+    
+    mutate({
+      conversationId,
+      message: text,
+      messageId: optimisticId,
+      onSuccess: (convId, messageId) => {
+        // Replace optimistic with real message
+        setMessages(prev => prev.map(msg =>
+          msg.id === optimisticId
+            ? { ...msg, id: messageId, pending: false }
+            : msg
+        ));
+      },
+      onError: () => {
+        // Remove failed message
+        setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
+      }
+    });
+  };
+  
+  return (
+    <ul>
+      {messages.map(msg => (
+        <li key={msg.id} className={msg.pending ? 'pending' : ''}>
+          {msg.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Track Conversation Creation
+
+```tsx
+function ConversationTracker() {
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const { mutate } = useSendMessage();
+  
+  const send = (message: string) => {
+    mutate({
+      conversationId, // May be null
+      message,
+      onConversationInitiated: (newId) => {
+        // Called immediately when new conversation is created
+        console.log('New conversation:', newId);
+        setConversationId(newId);
+        // You can now show optimistic UI for this conversation
+      },
+      onSuccess: (finalId, messageId) => {
+        console.log('Message sent:', messageId);
+      }
+    });
+  };
+  
+  return <MessageInput onSend={send} />;
+}
+```
+
+## Optimistic Updates
+
+The hook automatically handles optimistic updates:
+
+1. **Immediate feedback**: UI updates before API call completes
+2. **Rollback on error**: Failed messages are removed
+3. **Idempotent IDs**: Use custom message IDs to match optimistic messages with real ones
+
+## File Upload Flow
+
+When sending files:
+
+1. Hook generates presigned upload URLs
+2. Files are uploaded to S3 in parallel
+3. Public URLs are included in message parts
+4. Message is sent with file references
+
+```tsx
+// Files are automatically handled:
+mutate({
+  message: 'Check out these screenshots',
+  files: [file1, file2, file3]
+});
+
+// Result includes file parts:
+// {
+//   parts: [
+//     { type: 'text', text: '...' },
+//     { type: 'image', url: 'https://...' },
+//     { type: 'image', url: 'https://...' },
+//     { type: 'file', url: 'https://...' }
+//   ]
+// }
+```
+
+## Error Handling
+
+Common errors:
+
+```tsx
+const { mutate, error } = useSendMessage();
+
+// Check error type
+if (error) {
+  if (error.message.includes('empty')) {
+    // Empty message
+  } else if (error.message.includes('client')) {
+    // Client not initialized
+  } else {
+    // Network or API error
+  }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use mutateAsync for sequential operations">
+    ```tsx
+    const send = async () => {
+      const result = await mutateAsync({ message: 'First' });
+      if (result) {
+        await mutateAsync({
+          conversationId: result.conversationId,
+          message: 'Second'
+        });
+      }
+    };
+    ```
+  </Accordion>
+  
+  <Accordion title="Provide custom message IDs">
+    ```tsx
+    import { generateMessageId } from '@cossistant/core';
+    
+    const messageId = generateMessageId(); // ULID
+    mutate({
+      message: 'Hello',
+      messageId // For idempotency
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle file validation">
+    ```tsx
+    import { validateFiles } from '@cossistant/core';
+    
+    const error = validateFiles(files);
+    if (error) {
+      alert(error);
+      return;
+    }
+    
+    mutate({ message: 'Files', files });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## TypeScript
+
+```typescript
+import { useSendMessage, type SendMessageOptions } from '@cossistant/react';
+
+const { mutate } = useSendMessage();
+
+const options: SendMessageOptions = {
+  conversationId: '01JG123...',
+  message: 'Hello',
+  files: [],
+  onSuccess: (convId, msgId) => {
+    console.log(convId, msgId);
+  }
+};
+
+mutate(options);
+```
+
+## Related Hooks
+
+<CardGroup cols={2}>
+  <Card title="useConversation" icon="message" href="/api/hooks/use-conversation">
+    Load conversation data
+  </Card>
+  
+  <Card title="useVisitor" icon="user" href="/api/hooks/use-visitor">
+    Manage visitor identity
+  </Card>
+</CardGroup>

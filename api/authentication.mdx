@@ -1,0 +1,214 @@
+---
+title: 'Authentication'
+description: 'Learn how to authenticate with the Cossistant API'
+---
+
+# Authentication
+
+The Cossistant API uses API keys to authenticate requests. You can manage your API keys in the [Dashboard](https://cossistant.com/dashboard).
+
+## API Key Types
+
+### Public API Key
+
+Public keys are designed for browser-based applications and are safe to expose in client-side code.
+
+**Format**: `pk_[live|test]_[64 hex characters]`
+
+**Restrictions**:
+- Can only be used from whitelisted domains
+- Cannot access administrative endpoints
+- Limited to visitor-scoped operations
+
+**Use cases**:
+- Chat widgets
+- Customer-facing web applications
+- Mobile apps with public endpoints
+
+**Header**:
+```bash
+X-Public-Key: pk_test_abc123...
+```
+
+### Private API Key
+
+Private keys provide full API access and should be kept secure on your server.
+
+**Format**: `sk_[live|test]_[64 hex characters]`
+
+**Capabilities**:
+- Full access to all API endpoints
+- Can perform administrative operations
+- Access to private/internal data
+
+**Use cases**:
+- Backend integrations
+- Administrative tools
+- Data synchronization
+- Webhooks and automation
+
+**Header**:
+```bash
+Authorization: Bearer sk_test_xyz789...
+```
+
+## Test vs Live Keys
+
+Both key types come in test and live modes:
+
+- **Test keys** (`pk_test_...`, `sk_test_...`): Use for development and testing
+- **Live keys** (`pk_live_...`, `sk_live_...`): Use for production
+
+Test and live environments are completely isolated with separate data.
+
+## Authentication Examples
+
+### REST API with Private Key
+
+```bash
+curl https://api.cossistant.com/v1/conversations \
+  -H "Authorization: Bearer sk_test_abc123..." \
+  -H "Content-Type: application/json"
+```
+
+### REST API with Public Key
+
+```bash
+curl https://api.cossistant.com/v1/visitors/01234567890 \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01234567890" \
+  -H "Content-Type: application/json"
+```
+
+### WebSocket with Public Key
+
+```javascript
+const ws = new WebSocket(
+  'wss://api.cossistant.com/ws?publicKey=pk_test_abc123...&visitorId=01234567890'
+);
+```
+
+### WebSocket with Private Key
+
+```javascript
+const ws = new WebSocket(
+  'wss://api.cossistant.com/ws?token=sk_test_abc123...'
+);
+```
+
+## Required Headers
+
+### X-Visitor-Id
+
+Required for visitor-scoped operations with public keys.
+
+```bash
+X-Visitor-Id: 01JG000000000000000000000
+```
+
+**Format**: 26-character ULID (Universally Unique Lexicographically Sortable Identifier)
+
+**When to use**:
+- Creating conversations as a visitor
+- Sending messages from the widget
+- Updating visitor data
+
+### Origin Validation
+
+Public API keys enforce origin/domain validation. Requests are checked against:
+
+1. `Origin` header
+2. `Referer` header (fallback)
+3. Configured domain whitelist
+
+**WebSocket-specific headers**:
+- `Sec-WebSocket-Origin`
+- `Origin`
+- `Referer`
+
+Make sure your domain is added to the whitelist in the Dashboard.
+
+## Session-Based Authentication
+
+For dashboard users, the API also supports Better Auth session cookies:
+
+```javascript
+fetch('https://api.cossistant.com/trpc/conversation.list', {
+  credentials: 'include',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+```
+
+This is used internally by the dashboard and not recommended for external integrations.
+
+## Error Responses
+
+### 401 Unauthorized
+
+Invalid or missing API key:
+
+```json
+{
+  "error": "UNAUTHORIZED",
+  "message": "Invalid API key"
+}
+```
+
+### 403 Forbidden
+
+Valid key but insufficient permissions:
+
+```json
+{
+  "error": "FORBIDDEN",
+  "message": "Public API keys cannot access this endpoint"
+}
+```
+
+### Origin Mismatch
+
+Public key used from non-whitelisted domain:
+
+```json
+{
+  "error": "FORBIDDEN",
+  "message": "Origin not allowed for this API key"
+}
+```
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep private keys secure">
+    - Never expose private keys in client-side code
+    - Store private keys in environment variables
+    - Rotate keys if compromised
+    - Use separate keys for development and production
+  </Accordion>
+  
+  <Accordion title="Domain whitelist management">
+    - Add only trusted domains to public key whitelist
+    - Use specific domains, not wildcards (when possible)
+    - Remove unused domains regularly
+  </Accordion>
+  
+  <Accordion title="Key rotation">
+    - Rotate keys periodically
+    - Have a rollover period with both old and new keys active
+    - Monitor key usage before deactivating old keys
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Rate Limits" icon="gauge" href="/api/rate-limits">
+    Understand API rate limiting policies
+  </Card>
+  
+  <Card title="REST API" icon="code" href="/api/rest/conversations">
+    Start making API requests
+  </Card>
+</CardGroup>

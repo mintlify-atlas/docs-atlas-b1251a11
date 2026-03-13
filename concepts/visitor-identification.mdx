@@ -1,0 +1,513 @@
+---
+title: "Visitor Identification"
+description: "Learn how Cossistant tracks, identifies, and manages visitor data across sessions"
+---
+
+Visitor identification is the process of associating anonymous website visitors with known contact information (email, name, external IDs) to provide personalized support and maintain conversation history.
+
+## Visitor Lifecycle
+
+<Steps>
+  <Step title="Anonymous Visitor">
+    When a user first loads the widget, a unique `visitorId` is generated client-side and stored in localStorage
+  </Step>
+  <Step title="Identification">
+    Your application calls `IdentifySupportVisitor` with email/externalId to link the visitor to a contact
+  </Step>
+  <Step title="Contact Enrichment">
+    Additional metadata (name, image, custom fields) is attached to the contact record
+  </Step>
+  <Step title="Session Persistence">
+    Future visits from the same device automatically load the linked contact
+  </Step>
+</Steps>
+
+## React Component API
+
+Cossistant provides a declarative React component for visitor identification:
+
+```tsx packages/react/src/identify-visitor.tsx
+export type IdentifySupportVisitorProps = {
+  externalId?: string;
+  email?: string;
+  name?: string | null;
+  image?: string | null;
+  metadata?: VisitorMetadata | null;
+};
+
+export const IdentifySupportVisitor = ({
+  externalId,
+  email,
+  name,
+  image,
+  metadata,
+}: IdentifySupportVisitorProps): ReactElement | null => {
+  const { visitor, identify, setVisitorMetadata } = useVisitor();
+  const [hasIdentified, setHasIdentified] = useState(false);
+
+  // Call identify if visitor hasn't been identified yet
+  useEffect(() => {
+    const shouldIdentify = async () => {
+      const hasIdentificationData = Boolean(externalId || email);
+
+      // Need at least externalId or email to identify
+      if (!hasIdentificationData) {
+        return;
+      }
+
+      // Case 1: No contact exists yet
+      if (!visitor?.contact) {
+        if (!hasIdentified) {
+          await identify({
+            externalId,
+            email,
+            name: name ?? undefined,
+            image: image ?? undefined,
+          });
+          setHasIdentified(true);
+        }
+        return;
+      }
+
+      // Case 2: Contact exists but name/email/image changed
+      const contact = visitor.contact;
+      const nameChanged = name !== undefined && name !== contact.name;
+      const emailChanged = email !== undefined && email !== contact.email;
+      const imageChanged = image !== undefined && image !== contact.image;
+      const hasChanges = nameChanged || emailChanged || imageChanged;
+
+      if (hasChanges) {
+        await identify({ externalId, email, name, image });
+      }
+    };
+
+    shouldIdentify();
+  }, [visitor?.contact, externalId, email, name, image, identify]);
+
+  return null;
+};
+```
+
+### Usage Example
+
+```tsx
+import { IdentifySupportVisitor } from '@cossistant/react';
+
+function App() {
+  const user = useAuth(); // Your auth system
+
+  return (
+    <>
+      <IdentifySupportVisitor
+        email={user.email}
+        name={user.name}
+        externalId={user.id}
+        metadata={{
+          plan: user.subscription.plan,
+          signupDate: user.createdAt,
+          lastLoginAt: user.lastLoginAt,
+        }}
+      />
+      {/* Rest of your app */}
+    </>
+  );
+}
+```
+
+<Info>
+  The component must be rendered **inside** the `<Cossistant>` provider component to access visitor context.
+</Info>
+
+## Identification Flow
+
+### Initial Identification
+
+When a visitor is first identified, the system:
+
+1. **Checks for existing contact** with matching email or externalId
+2. **Creates or updates contact** with provided information
+3. **Links visitor to contact** in the database
+4. **Returns updated visitor object** via WebSocket
+
+<Accordion title="Backend Implementation">
+  The identification happens through the `identifyVisitor` tool:
+
+  ```typescript apps/api/src/ai-pipeline/shared/tools/context.ts
+  export function createIdentifyVisitorTool(
+    context: PipelineToolContext
+  ): Tool {
+    return tool({
+      description: "Update visitor identity with contact information",
+      parameters: z.object({
+        email: z.string().email().optional(),
+        name: z.string().optional(),
+        externalId: z.string().optional(),
+        metadata: z.record(z.unknown()).optional(),
+      }),
+      execute: async (params) => {
+        // Upsert contact record
+        const contact = await upsertContact({
+          email: params.email,
+          name: params.name,
+          externalId: params.externalId,
+          organizationId: context.organizationId,
+          websiteId: context.websiteId,
+        });
+
+        // Link visitor to contact
+        await linkVisitorToContact({
+          visitorId: context.visitorId,
+          contactId: contact.id,
+        });
+
+        // Emit visitorIdentified event
+        await emitVisitorIdentified({
+          visitorId: context.visitorId,
+          contactId: contact.id,
+          websiteId: context.websiteId,
+        });
+
+        return { success: true, contactId: contact.id };
+      },
+    });
+  }
+  ```
+</Accordion>
+
+### Metadata Updates
+
+Metadata is updated separately with hash-based change detection to avoid unnecessary database writes:
+
+```tsx packages/react/src/identify-visitor.tsx
+const [lastMetadataHash, setLastMetadataHash] = useState<string | null>(null);
+
+useEffect(() => {
+  const updateMetadata = async () => {
+    if (!_newMetadata || !visitor?.contact) {
+      return;
+    }
+
+    // Compute new metadata hash
+    const newMetadataHash = await computeMetadataHash(_newMetadata);
+
+    // Get the existing hash from the contact
+    const existingHash = visitor.contact.metadataHash || "";
+
+    // Only update if hashes don't match
+    const hashChanged = newMetadataHash !== existingHash;
+    const notAlreadyUpdated = newMetadataHash !== lastMetadataHash;
+    const shouldUpdate = Boolean(
+      newMetadataHash && hashChanged && notAlreadyUpdated
+    );
+
+    if (shouldUpdate) {
+      await setVisitorMetadata(_newMetadata);
+      setLastMetadataHash(newMetadataHash);
+    }
+  };
+
+  updateMetadata();
+}, [_newMetadata, visitor?.contact?.metadataHash]);
+```
+
+<Tip>
+  **Hash-based updates** prevent excessive API calls when component props change frequently. Metadata is only sent to the server when the actual content changes.
+</Tip>
+
+## Metadata Hash Algorithm
+
+```tsx packages/react/src/utils/metadata-hash.ts
+export async function computeMetadataHash(
+  metadata: VisitorMetadata
+): Promise<string> {
+  // Sort keys to ensure consistent hashing
+  const sortedEntries = Object.entries(metadata).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+  const normalized = JSON.stringify(sortedEntries);
+
+  // Use Web Crypto API for hashing
+  const encoder = new TextEncoder();
+  const data = encoder.encode(normalized);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  return hashHex;
+}
+```
+
+## Visitor Data Schema
+
+Visitors and contacts are stored in separate tables with a many-to-one relationship:
+
+<Tabs>
+  <Tab title="Visitor Table">
+    ```typescript apps/api/src/db/schema/website.ts
+    export const visitor = pgTable("visitor", {
+      id: ulidPrimaryKey("id"),
+      organizationId: ulidReference("organization_id"),
+      websiteId: ulidReference("website_id"),
+      // Link to contact (null if anonymous)
+      contactId: ulidNullableReference("contact_id"),
+      // Session tracking
+      fingerprint: text("fingerprint"),
+      lastSeenAt: timestamp("last_seen_at"),
+      // Device/browser info
+      userAgent: text("user_agent"),
+      // Location data
+      ipAddress: text("ip_address"),
+      country: text("country"),
+      city: text("city"),
+      createdAt: timestamp("created_at"),
+    });
+    ```
+  </Tab>
+
+  <Tab title="Contact Table">
+    ```typescript apps/api/src/db/schema/website.ts
+    export const contact = pgTable("contact", {
+      id: ulidPrimaryKey("id"),
+      organizationId: ulidReference("organization_id"),
+      websiteId: ulidReference("website_id"),
+      // Identity fields
+      email: text("email"),
+      name: text("name"),
+      image: text("image"),
+      externalId: text("external_id"),
+      // Metadata with hash for change detection
+      metadata: jsonb("metadata").$type<VisitorMetadata>(),
+      metadataHash: text("metadata_hash"),
+      createdAt: timestamp("created_at"),
+      updatedAt: timestamp("updated_at"),
+    });
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  **Key distinction**: A `visitor` represents a browser session, while a `contact` represents a person. Multiple visitors (e.g., different devices) can link to the same contact.
+</Note>
+
+## Identification State
+
+The React component manages identification state to provide loading feedback:
+
+```tsx packages/react/src/identify-visitor.tsx
+const identificationState = useIdentificationState();
+
+// Signal that identification is pending
+useEffect(() => {
+  const hasIdentificationData = Boolean(externalId || email);
+  const needsIdentification = hasIdentificationData && !visitor?.contact;
+
+  if (identificationState?.setIsIdentifying) {
+    identificationState.setIsIdentifying(
+      needsIdentification && !hasIdentified
+    );
+  }
+}, [externalId, email, visitor?.contact, hasIdentified]);
+
+// Clear identifying state after completion
+if (identificationState?.setIsIdentifying) {
+  identificationState.setIsIdentifying(false);
+}
+```
+
+You can use this state to show loading indicators:
+
+```tsx
+import { useIdentificationState } from '@cossistant/react';
+
+function MyComponent() {
+  const identificationState = useIdentificationState();
+
+  if (identificationState?.isIdentifying) {
+    return <Spinner text="Identifying visitor..." />;
+  }
+
+  return <div>Visitor identified!</div>;
+}
+```
+
+## WebSocket Events
+
+When identification completes, a `visitorIdentified` event is broadcast:
+
+```typescript apps/api/src/ws/router.ts
+const dispatchRules = {
+  visitorIdentified: { website: true, visitor: true },
+};
+```
+
+**Event payload**:
+
+```typescript
+type VisitorIdentifiedEvent = {
+  type: "visitorIdentified";
+  payload: {
+    organizationId: string;
+    websiteId: string;
+    visitorId: string;
+    contactId: string;
+    contact: {
+      id: string;
+      email: string | null;
+      name: string | null;
+      image: string | null;
+      externalId: string | null;
+      metadata: VisitorMetadata | null;
+      metadataHash: string | null;
+    };
+  };
+};
+```
+
+The widget automatically updates its internal state when this event is received.
+
+## Privacy & Data Retention
+
+Cossistant handles visitor data with privacy in mind:
+
+<AccordionGroup>
+  <Accordion title="Anonymous Mode">
+    Visitors remain anonymous until explicitly identified. Anonymous visitors can still have conversations, but they're not linked to contacts.
+  </Accordion>
+
+  <Accordion title="Data Deletion">
+    When a contact is deleted (GDPR right to erasure), all linked visitors are unlinked and conversations are anonymized.
+  </Accordion>
+
+  <Accordion title="Session Persistence">
+    The `visitorId` is stored in localStorage, not cookies, to avoid cookie consent requirements in many jurisdictions.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Identify Early" icon="gauge-high">
+    Call `IdentifySupportVisitor` as soon as user authentication is available to enable conversation continuity
+  </Card>
+  <Card title="Update Dynamically" icon="arrows-rotate">
+    Update props when user profile changes (e.g., after settings update). The component handles deduplication
+  </Card>
+  <Card title="Include Metadata" icon="database">
+    Pass relevant context (subscription tier, role, signup date) to help agents provide better support
+  </Card>
+  <Card title="Handle Logout" icon="right-from-bracket">
+    Clear identification by rendering `<IdentifySupportVisitor />` without props when user logs out
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Authenticated App
+
+```tsx
+import { IdentifySupportVisitor } from '@cossistant/react';
+
+function AuthenticatedApp() {
+  const { user } = useAuth();
+
+  return (
+    <Cossistant publicKey="pk_...">
+      {user && (
+        <IdentifySupportVisitor
+          externalId={user.id}
+          email={user.email}
+          name={user.name}
+          image={user.avatarUrl}
+          metadata={{
+            role: user.role,
+            plan: user.subscription.plan,
+            company: user.company.name,
+          }}
+        />
+      )}
+      <YourApp />
+    </Cossistant>
+  );
+}
+```
+
+### Marketing Site (Anonymous)
+
+```tsx
+import { Cossistant } from '@cossistant/react';
+
+function MarketingSite() {
+  // No IdentifySupportVisitor component - visitors remain anonymous
+  return (
+    <Cossistant publicKey="pk_...">
+      <HomePage />
+    </Cossistant>
+  );
+}
+```
+
+### Progressive Identification
+
+```tsx
+function CheckoutFlow() {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+
+  return (
+    <>
+      <IdentifySupportVisitor
+        email={email || undefined}
+        name={name || undefined}
+      />
+      <CheckoutForm
+        onEmailChange={setEmail}
+        onNameChange={setName}
+      />
+    </>
+  );
+}
+```
+
+<Tip>
+  The component automatically handles partial data. As more information becomes available (e.g., name after email), it updates the contact record.
+</Tip>
+
+## API Reference
+
+### `IdentifySupportVisitor` Props
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `externalId` | `string \| undefined` | Your system's user ID (recommended for logged-in users) |
+| `email` | `string \| undefined` | Email address (required if no externalId) |
+| `name` | `string \| null` | Display name for the contact |
+| `image` | `string \| null` | Avatar image URL |
+| `metadata` | `VisitorMetadata \| null` | Custom key-value data (must be JSON-serializable) |
+
+### `useVisitor()` Hook
+
+```typescript
+const { visitor, identify, setVisitorMetadata } = useVisitor();
+
+type Visitor = {
+  id: string;
+  contact: Contact | null;
+  lastSeenAt: string;
+};
+
+type Contact = {
+  id: string;
+  email: string | null;
+  name: string | null;
+  image: string | null;
+  externalId: string | null;
+  metadata: VisitorMetadata | null;
+  metadataHash: string | null;
+};
+```
+
+<Card title="Next Steps" icon="arrow-right">
+  - [Architecture](/concepts/architecture) - Understand the system design
+  - [AI Agents](/concepts/ai-agents) - See how agents use visitor data
+  - [API Reference](/api/overview) - Explore the complete API
+</Card>

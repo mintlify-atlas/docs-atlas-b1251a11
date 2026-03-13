@@ -1,0 +1,453 @@
+---
+title: 'Messages API'
+description: 'Send messages and timeline items to conversations'
+---
+
+# Messages API
+
+The Messages API allows you to send messages and timeline items to existing conversations. Messages are automatically formatted as timeline items with support for text, images, and file attachments.
+
+## Base Endpoint
+
+```
+POST /v1/messages
+```
+
+## Send Message
+
+`POST /v1/messages`
+
+Send a new timeline item (message or event) to an existing conversation.
+
+### Authentication
+
+- **Public API Key**: Can send visitor messages to conversations they own
+- **Private API Key**: Can send messages on behalf of users, AI agents, or visitors
+
+### Request Body
+
+<ParamField body="conversationId" type="string" required>
+  The conversation to send the message to
+</ParamField>
+
+<ParamField body="item" type="object" required>
+  The timeline item to create
+  
+  <Expandable title="Timeline Item Properties">
+    <ParamField body="id" type="string">
+      Optional message ID for idempotency. If not provided, one will be generated.
+    </ParamField>
+    
+    <ParamField body="type" type="string" default="message">
+      Type of timeline item: `message` or `event`
+    </ParamField>
+    
+    <ParamField body="text" type="string" required>
+      Text content of the message (required for messages)
+    </ParamField>
+    
+    <ParamField body="parts" type="array">
+      Array of timeline parts for rich content:
+      - `text`: Text content
+      - `image`: Image attachment with URL
+      - `file`: File attachment with URL
+      
+      <Expandable title="Part Types">
+        **Text Part**
+        ```json
+        {
+          "type": "text",
+          "text": "Hello world"
+        }
+        ```
+        
+        **Image Part**
+        ```json
+        {
+          "type": "image",
+          "url": "https://...",
+          "mediaType": "image/png",
+          "filename": "screenshot.png",
+          "size": 12345
+        }
+        ```
+        
+        **File Part**
+        ```json
+        {
+          "type": "file",
+          "url": "https://...",
+          "mediaType": "application/pdf",
+          "filename": "document.pdf",
+          "size": 54321
+        }
+        ```
+      </Expandable>
+    </ParamField>
+    
+    <ParamField body="visibility" type="string" default="public">
+      - `public`: Visible to visitor and dashboard
+      - `private`: Only visible in dashboard (internal notes)
+    </ParamField>
+    
+    <ParamField body="userId" type="string">
+      ID of the team member sending the message (private key only)
+    </ParamField>
+    
+    <ParamField body="aiAgentId" type="string">
+      ID of the AI agent sending the message (private key only)
+    </ParamField>
+    
+    <ParamField body="visitorId" type="string">
+      ID of the visitor sending the message
+    </ParamField>
+    
+    <ParamField body="createdAt" type="string">
+      Optional ISO 8601 timestamp (defaults to current time)
+    </ParamField>
+    
+    <ParamField body="tool" type="object">
+      Optional tool metadata for AI agent tool outputs
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+<ResponseField name="item" type="object">
+  The created timeline item with server-assigned properties
+  
+  <Expandable title="Timeline Item Response">
+    <ResponseField name="id" type="string">
+      Unique timeline item ID
+    </ResponseField>
+    
+    <ResponseField name="conversationId" type="string">
+      The conversation this item belongs to
+    </ResponseField>
+    
+    <ResponseField name="organizationId" type="string">
+      Organization ID
+    </ResponseField>
+    
+    <ResponseField name="type" type="string">
+      `message` or `event`
+    </ResponseField>
+    
+    <ResponseField name="text" type="string">
+      Message text content
+    </ResponseField>
+    
+    <ResponseField name="parts" type="array">
+      Array of timeline parts (text, images, files)
+    </ResponseField>
+    
+    <ResponseField name="visibility" type="string">
+      `public` or `private`
+    </ResponseField>
+    
+    <ResponseField name="userId" type="string">
+      User ID if sent by a team member
+    </ResponseField>
+    
+    <ResponseField name="aiAgentId" type="string">
+      AI agent ID if sent by an AI agent
+    </ResponseField>
+    
+    <ResponseField name="visitorId" type="string">
+      Visitor ID if sent by a visitor
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Examples
+
+#### Send Visitor Message (Public Key)
+
+```bash
+curl -X POST https://api.cossistant.com/v1/messages \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "item": {
+      "text": "Hello! I have a question about my order.",
+      "type": "message",
+      "visibility": "public",
+      "visitorId": "01JG000000000000000000000"
+    }
+  }'
+```
+
+<ResponseExample>
+```json
+{
+  "item": {
+    "id": "01JG234567890ABCDEFGHIJK",
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "type": "message",
+    "text": "Hello! I have a question about my order.",
+    "parts": [
+      {
+        "type": "text",
+        "text": "Hello! I have a question about my order."
+      }
+    ],
+    "visibility": "public",
+    "userId": null,
+    "aiAgentId": null,
+    "visitorId": "01JG000000000000000000000",
+    "createdAt": "2024-03-13T10:05:00.000Z",
+    "deletedAt": null
+  }
+}
+```
+</ResponseExample>
+
+#### Send Team Message (Private Key)
+
+```bash
+curl -X POST https://api.cossistant.com/v1/messages \
+  -H "Authorization: Bearer sk_test_xyz789..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "item": {
+      "text": "Thanks for reaching out! Let me help you with that.",
+      "type": "message",
+      "visibility": "public",
+      "userId": "01JG000000000000000000003"
+    }
+  }'
+```
+
+#### Send Message with Image
+
+```bash
+curl -X POST https://api.cossistant.com/v1/messages \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "item": {
+      "text": "Here is a screenshot of the issue:",
+      "type": "message",
+      "visibility": "public",
+      "visitorId": "01JG000000000000000000000",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Here is a screenshot of the issue:"
+        },
+        {
+          "type": "image",
+          "url": "https://s3.amazonaws.com/.../screenshot.png",
+          "mediaType": "image/png",
+          "filename": "screenshot.png",
+          "size": 245678
+        }
+      ]
+    }
+  }'
+```
+
+#### Send Internal Note (Private Key)
+
+```bash
+curl -X POST https://api.cossistant.com/v1/messages \
+  -H "Authorization: Bearer sk_test_xyz789..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "item": {
+      "text": "Customer seems frustrated. Priority escalation needed.",
+      "type": "message",
+      "visibility": "private",
+      "userId": "01JG000000000000000000003"
+    }
+  }'
+```
+
+## Automatic Features
+
+### Participant Management
+
+When a team member sends their first message to a conversation:
+- They are automatically added as a participant
+- A `participant_joined` event is created
+- They start receiving real-time updates for the conversation
+
+### Read Receipts
+
+- Team members: Conversations are automatically marked as "seen" when they send a message
+- Visitors: Must explicitly call the `/conversations/{id}/seen` endpoint
+
+### Presence Tracking
+
+Sending a message automatically updates presence:
+- User presence tracked by `userId`
+- Visitor presence tracked by `visitorId`
+- Used for "last seen" indicators in the dashboard
+
+### Notifications
+
+Messages trigger notification workflows:
+- Email notifications to team members
+- Dashboard push notifications
+- WebSocket real-time events
+- Configurable per message actor type
+
+## Public vs Private Key Behavior
+
+### Public API Key Restrictions
+
+- Can only send messages on behalf of visitors
+- Must provide `visitorId` matching the conversation owner
+- Cannot set `userId` or `aiAgentId`
+- Cannot send messages to closed conversations (`resolved`, `spam`, or deleted)
+- Cannot send messages to conversations owned by other visitors
+
+### Private API Key Capabilities
+
+- Can send messages on behalf of users, AI agents, or visitors
+- Can send internal notes (`visibility: private`)
+- Can send messages to any conversation
+- Can send messages to closed conversations
+- Can backdate messages with custom `createdAt` timestamps
+
+## Timeline Item Types
+
+### Message
+
+Standard user/visitor/AI message:
+
+```json
+{
+  "type": "message",
+  "text": "Message content",
+  "visibility": "public"
+}
+```
+
+### Event
+
+System events or status changes:
+
+```json
+{
+  "type": "event",
+  "text": "Conversation was escalated to supervisor",
+  "visibility": "private"
+}
+```
+
+### Tool Output
+
+AI agent tool execution results:
+
+```json
+{
+  "type": "message",
+  "text": "Found 3 matching orders",
+  "visibility": "private",
+  "aiAgentId": "01JG000000000000000000004",
+  "tool": {
+    "name": "search_orders",
+    "arguments": {"query": "recent orders"}
+  }
+}
+```
+
+## Uploading Files
+
+To send messages with file attachments:
+
+1. **Generate upload URL**: Use `/v1/uploads` endpoint to get a presigned S3 URL
+2. **Upload file**: Upload the file to the presigned URL
+3. **Send message**: Include the public URL in the `parts` array
+
+See the [File Upload](/api/rest/messages) documentation for details.
+
+## Error Responses
+
+<ResponseField name="400 Bad Request" type="object">
+  Invalid request parameters
+  ```json
+  {
+    "error": "Message cannot be empty"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="403 Forbidden" type="object">
+  Public key attempting restricted operation
+  ```json
+  {
+    "error": "Forbidden: visitor does not own the conversation"
+  }
+  ```
+  
+  or
+  
+  ```json
+  {
+    "error": "Forbidden: this conversation is closed and cannot receive new messages"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404 Not Found" type="object">
+  Conversation not found
+  ```json
+  {
+    "error": "Conversation for website not found"
+  }
+  ```
+</ResponseField>
+
+## Real-Time Events
+
+When a message is sent, the following events are emitted via WebSocket:
+
+- `timelineItemCreated`: Sent to all conversation participants
+- `conversationUpdated`: Updates conversation `updatedAt` timestamp
+- `conversationSeen`: If sender is a user or AI agent
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use idempotent IDs">
+    Provide a custom `id` in the item to safely retry failed requests without creating duplicates.
+  </Accordion>
+  
+  <Accordion title="Handle file uploads separately">
+    Upload files first using the uploads endpoint, then reference them in the message parts.
+  </Accordion>
+  
+  <Accordion title="Optimize for real-time updates">
+    Use WebSocket connections to receive instant message updates instead of polling this endpoint.
+  </Accordion>
+  
+  <Accordion title="Use private visibility for internal notes">
+    Keep sensitive information or internal discussions private by setting `visibility: "private"`.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Conversations API" icon="messages" href="/api/rest/conversations">
+    Learn about managing conversations
+  </Card>
+  
+  <Card title="WebSocket Events" icon="bolt" href="/api/websocket/events">
+    Subscribe to real-time message events
+  </Card>
+</CardGroup>

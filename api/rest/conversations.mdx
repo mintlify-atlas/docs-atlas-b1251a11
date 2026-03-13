@@ -1,0 +1,522 @@
+---
+title: 'Conversations API'
+description: 'Create and manage customer support conversations'
+---
+
+# Conversations API
+
+Conversations represent support threads between visitors and your team. Each conversation contains timeline items (messages and events) and is associated with a single visitor.
+
+## Base Endpoint
+
+```
+POST   /v1/conversations
+GET    /v1/conversations
+GET    /v1/conversations/{conversationId}
+POST   /v1/conversations/{conversationId}/seen
+POST   /v1/conversations/{conversationId}/typing
+POST   /v1/conversations/{conversationId}/rating
+GET    /v1/conversations/{conversationId}/seen
+GET    /v1/conversations/{conversationId}/timeline
+```
+
+## Create Conversation
+
+`POST /v1/conversations`
+
+Create a new conversation with optional initial timeline items.
+
+### Authentication
+
+<Snippet file="auth-public-or-private.mdx" />
+
+### Request Body
+
+<ParamField body="visitorId" type="string" required>
+  The ID of the visitor who owns this conversation (26-character ULID)
+</ParamField>
+
+<ParamField body="conversationId" type="string">
+  Optional custom conversation ID for idempotency. If provided and a conversation with this ID already exists for a different visitor, returns 409 Conflict.
+</ParamField>
+
+<ParamField body="defaultTimelineItems" type="array">
+  Optional array of timeline items to create with the conversation. Useful for pre-populating conversations or migrating data.
+  
+  <Expandable title="Timeline Item Properties">
+    <ParamField body="id" type="string">
+      Optional timeline item ID. If not provided, one will be generated.
+    </ParamField>
+    
+    <ParamField body="type" type="string">
+      Type of timeline item: `message` or `event`
+    </ParamField>
+    
+    <ParamField body="text" type="string">
+      Text content of the message
+    </ParamField>
+    
+    <ParamField body="parts" type="array">
+      Array of timeline parts (text, images, files)
+    </ParamField>
+    
+    <ParamField body="visibility" type="string">
+      `public` (visible to visitor) or `private` (internal only)
+    </ParamField>
+    
+    <ParamField body="userId" type="string">
+      ID of the user who sent this message (for team messages)
+    </ParamField>
+    
+    <ParamField body="aiAgentId" type="string">
+      ID of the AI agent who sent this message
+    </ParamField>
+    
+    <ParamField body="visitorId" type="string">
+      ID of the visitor who sent this message
+    </ParamField>
+    
+    <ParamField body="createdAt" type="string">
+      ISO 8601 timestamp for when this item was created
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+<ResponseField name="conversation" type="object">
+  The created conversation object
+  
+  <Expandable title="Conversation Properties">
+    <ResponseField name="id" type="string">
+      Unique conversation ID
+    </ResponseField>
+    
+    <ResponseField name="title" type="string">
+      Auto-generated or custom conversation title
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Conversation status: `open`, `resolved`, `spam`
+    </ResponseField>
+    
+    <ResponseField name="visitorId" type="string">
+      ID of the visitor who owns this conversation
+    </ResponseField>
+    
+    <ResponseField name="websiteId" type="string">
+      ID of the website this conversation belongs to
+    </ResponseField>
+    
+    <ResponseField name="visitorRating" type="number">
+      Visitor's rating (1-5) if provided
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    
+    <ResponseField name="lastTimelineItem" type="object">
+      Most recent message or event in the conversation
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="initialTimelineItems" type="array">
+  Array of created timeline items from the request
+</ResponseField>
+
+### Example
+
+```bash
+curl -X POST https://api.cossistant.com/v1/conversations \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "visitorId": "01JG000000000000000000000",
+    "defaultTimelineItems": [
+      {
+        "type": "message",
+        "text": "Hello! I need help with my order.",
+        "visibility": "public",
+        "visitorId": "01JG000000000000000000000"
+      }
+    ]
+  }'
+```
+
+<ResponseExample>
+```json
+{
+  "conversation": {
+    "id": "01JG123456789ABCDEFGHIJK",
+    "title": null,
+    "status": "open",
+    "visitorId": "01JG000000000000000000000",
+    "websiteId": "01JG000000000000000000001",
+    "visitorRating": null,
+    "visitorRatingAt": null,
+    "createdAt": "2024-03-13T10:00:00.000Z",
+    "updatedAt": "2024-03-13T10:00:00.000Z",
+    "deletedAt": null
+  },
+  "initialTimelineItems": [
+    {
+      "id": "01JG123456789ABCDEFGHIJK",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "type": "message",
+      "text": "Hello! I need help with my order.",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Hello! I need help with my order."
+        }
+      ],
+      "visibility": "public",
+      "visitorId": "01JG000000000000000000000",
+      "userId": null,
+      "aiAgentId": null,
+      "createdAt": "2024-03-13T10:00:00.000Z"
+    }
+  ]
+}
+```
+</ResponseExample>
+
+---
+
+## List Conversations
+
+`GET /v1/conversations`
+
+Retrieve a paginated list of conversations for a visitor.
+
+### Query Parameters
+
+<ParamField query="visitorId" type="string" required>
+  Filter conversations by visitor ID
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by status: `open`, `resolved`, `spam`
+</ParamField>
+
+<ParamField query="page" type="number" default="1">
+  Page number (1-indexed)
+</ParamField>
+
+<ParamField query="limit" type="number" default="20">
+  Items per page (max 100)
+</ParamField>
+
+<ParamField query="orderBy" type="string" default="updatedAt">
+  Field to sort by: `createdAt`, `updatedAt`
+</ParamField>
+
+<ParamField query="order" type="string" default="desc">
+  Sort order: `asc` or `desc`
+</ParamField>
+
+### Response
+
+<ResponseField name="conversations" type="array">
+  Array of conversation objects with their last timeline item
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  <Expandable title="Pagination Details">
+    <ResponseField name="page" type="number">
+      Current page number
+    </ResponseField>
+    <ResponseField name="limit" type="number">
+      Items per page
+    </ResponseField>
+    <ResponseField name="total" type="number">
+      Total number of conversations matching the filter
+    </ResponseField>
+    <ResponseField name="totalPages" type="number">
+      Total number of pages
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+```bash
+curl "https://api.cossistant.com/v1/conversations?visitorId=01JG000000000000000000000&status=open" \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000"
+```
+
+---
+
+## Get Conversation
+
+`GET /v1/conversations/{conversationId}`
+
+Retrieve a single conversation by ID.
+
+### Path Parameters
+
+<ParamField path="conversationId" type="string" required>
+  The conversation ID to retrieve
+</ParamField>
+
+### Response
+
+<ResponseField name="conversation" type="object">
+  The conversation object with its last timeline item
+</ResponseField>
+
+### Example
+
+```bash
+curl https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK \
+  -H "X-Public-Key: pk_test_abc123..."
+```
+
+---
+
+## Mark as Seen
+
+`POST /v1/conversations/{conversationId}/seen`
+
+Record that a visitor has seen messages in a conversation (read receipt).
+
+### Authentication
+
+<Info>Public API key only. Use `X-Visitor-Id` header.</Info>
+
+### Path Parameters
+
+<ParamField path="conversationId" type="string" required>
+  The conversation ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="visitorId" type="string">
+  Optional visitor ID (can also be provided via header)
+</ParamField>
+
+### Response
+
+<ResponseField name="conversationId" type="string">
+  The conversation ID
+</ResponseField>
+
+<ResponseField name="lastSeenAt" type="string">
+  ISO 8601 timestamp when the conversation was marked as seen
+</ResponseField>
+
+### Example
+
+```bash
+curl -X POST https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK/seen \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+---
+
+## Report Typing
+
+`POST /v1/conversations/{conversationId}/typing`
+
+Send a typing indicator event to show that a visitor is typing.
+
+### Request Body
+
+<ParamField body="isTyping" type="boolean" required>
+  Whether the visitor is currently typing
+</ParamField>
+
+<ParamField body="visitorPreview" type="string">
+  Preview of what the visitor is typing (max 2000 characters)
+</ParamField>
+
+<ParamField body="visitorId" type="string">
+  Visitor ID (can also be provided via header)
+</ParamField>
+
+### Response
+
+<ResponseField name="conversationId" type="string">
+  The conversation ID
+</ResponseField>
+
+<ResponseField name="isTyping" type="boolean">
+  Typing state
+</ResponseField>
+
+<ResponseField name="visitorPreview" type="string">
+  Preview text (truncated to 2000 chars)
+</ResponseField>
+
+<ResponseField name="sentAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+### Example
+
+```bash
+curl -X POST https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK/typing \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "isTyping": true,
+    "visitorPreview": "I am having trouble with..."
+  }'
+```
+
+---
+
+## Submit Rating
+
+`POST /v1/conversations/{conversationId}/rating`
+
+Submit a visitor rating (1-5 stars) for a resolved conversation.
+
+### Request Body
+
+<ParamField body="rating" type="number" required>
+  Rating from 1 (worst) to 5 (best)
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Optional feedback comment
+</ParamField>
+
+<ParamField body="visitorId" type="string">
+  Visitor ID (can also be provided via header)
+</ParamField>
+
+### Response
+
+<ResponseField name="conversationId" type="string">
+  The conversation ID
+</ResponseField>
+
+<ResponseField name="rating" type="number">
+  The submitted rating
+</ResponseField>
+
+<ResponseField name="ratedAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+### Example
+
+```bash
+curl -X POST https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK/rating \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rating": 5,
+    "comment": "Very helpful, thank you!"
+  }'
+```
+
+---
+
+## Get Seen Data
+
+`GET /v1/conversations/{conversationId}/seen`
+
+Retrieve read receipt data showing who has seen messages in the conversation.
+
+### Response
+
+<ResponseField name="seenData" type="array">
+  Array of seen records with userId/visitorId and lastSeenAt timestamps
+</ResponseField>
+
+---
+
+## Get Timeline
+
+`GET /v1/conversations/{conversationId}/timeline`
+
+Fetch paginated timeline items (messages and events) for a conversation.
+
+### Query Parameters
+
+<ParamField query="limit" type="number" default="50">
+  Number of items to return (max 100)
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Cursor for pagination (from previous response)
+</ParamField>
+
+### Response
+
+<ResponseField name="items" type="array">
+  Array of timeline items in chronological order
+</ResponseField>
+
+<ResponseField name="nextCursor" type="string">
+  Cursor for fetching the next page (null if no more items)
+</ResponseField>
+
+<ResponseField name="hasNextPage" type="boolean">
+  Whether there are more items to fetch
+</ResponseField>
+
+### Example
+
+```bash
+curl "https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK/timeline?limit=20" \
+  -H "X-Public-Key: pk_test_abc123..."
+```
+
+## Error Responses
+
+<ResponseField name="400 Bad Request" type="object">
+  Invalid request parameters
+  ```json
+  {
+    "error": "Visitor not found, please pass a valid visitorId"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404 Not Found" type="object">
+  Conversation not found
+  ```json
+  {
+    "error": "Conversation not found"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="409 Conflict" type="object">
+  Conversation ID already exists for another visitor
+  ```json
+  {
+    "code": "CONVERSATION_ID_CONFLICT",
+    "error": "Conversation ID already exists for another visitor"
+  }
+  ```
+</ResponseField>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Messages API" icon="paper-plane" href="/api/rest/messages">
+    Send messages to conversations
+  </Card>
+  
+  <Card title="Visitors API" icon="user" href="/api/rest/visitors">
+    Manage visitor data
+  </Card>
+</CardGroup>

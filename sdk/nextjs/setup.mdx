@@ -1,0 +1,347 @@
+---
+title: Next.js Setup
+description: Step-by-step guide to installing and configuring Cossistant in your Next.js application
+---
+
+This guide walks you through setting up the Cossistant SDK in a Next.js application using the App Router.
+
+## Prerequisites
+
+- Next.js 13.5.2 or later (App Router enabled)
+- React 18 or later
+- Node.js 18+ or Bun 1.0+
+- A Cossistant account with an API key ([sign up here](https://cossistant.com))
+
+## Installation
+
+<Steps>
+  <Step title="Install the package">
+    <CodeGroup>
+      ```bash npm
+      npm install @cossistant/next
+      ```
+
+      ```bash pnpm
+      pnpm add @cossistant/next
+      ```
+
+      ```bash yarn
+      yarn add @cossistant/next
+      ```
+
+      ```bash bun
+      bun add @cossistant/next
+      ```
+    </CodeGroup>
+
+    <Note>
+      The package includes TypeScript definitions and requires no additional `@types` packages.
+    </Note>
+  </Step>
+
+  <Step title="Get your API key">
+    1. Log in to your [Cossistant dashboard](https://cossistant.com/dashboard)
+    2. Navigate to **Settings** → **API Keys**
+    3. Copy your **Public Key** (starts with `pk_test_` or `pk_live_`)
+
+    <Warning>
+      Use test keys (`pk_test_`) during development. Switch to live keys (`pk_live_`) in production.
+    </Warning>
+  </Step>
+
+  <Step title="Add environment variables">
+    Create a `.env.local` file in your project root:
+
+    ```bash .env.local
+    NEXT_PUBLIC_COSSISTANT_API_KEY=pk_test_xxxxxxxxxxxx
+    ```
+
+    <Note>
+      The `NEXT_PUBLIC_` prefix makes this variable available in the browser. This is safe - public keys are designed to be exposed.
+    </Note>
+  </Step>
+
+  <Step title="Configure SupportProvider in root layout">
+    Add the `SupportProvider` to your root layout to initialize the SDK:
+
+    ```tsx app/layout.tsx
+    import { SupportProvider } from "@cossistant/next";
+    import type { Metadata } from "next";
+    import "./globals.css";
+
+    export const metadata: Metadata = {
+      title: "My App",
+      description: "Built with Next.js and Cossistant",
+    };
+
+    export default function RootLayout({
+      children,
+    }: {
+      children: React.ReactNode;
+    }) {
+      return (
+        <html lang="en">
+          <body>
+            <SupportProvider>{children}</SupportProvider>
+          </body>
+        </html>
+      );
+    }
+    ```
+
+    <Note>
+      The `SupportProvider` automatically reads `NEXT_PUBLIC_COSSISTANT_API_KEY` from your environment. You can also pass it explicitly via the `publicKey` prop.
+    </Note>
+  </Step>
+
+  <Step title="Add the Support widget">
+    Drop the `<Support />` component into any page:
+
+    ```tsx app/page.tsx
+    import { Support } from "@cossistant/next";
+    import Link from "next/link";
+
+    export default function HomePage() {
+      return (
+        <main className="p-8">
+          <h1 className="text-3xl font-bold">Welcome to My App</h1>
+          <p className="mt-4 text-slate-600">
+            Need help? Click the support button in the bottom right.
+          </p>
+
+          <Support />
+        </main>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Test your integration">
+    Start your development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    Open [http://localhost:3000](http://localhost:3000) and look for the floating support button in the bottom right corner.
+
+    Click it to open the widget. If you see the chat interface, you're all set!
+  </Step>
+</Steps>
+
+## Configuration Options
+
+### SupportProvider Props
+
+Customize the provider behavior with these optional props:
+
+```tsx app/layout.tsx
+import { SupportProvider } from "@cossistant/next";
+
+export default function RootLayout({ children }) {
+  return (
+    <SupportProvider
+      publicKey={process.env.NEXT_PUBLIC_COSSISTANT_API_KEY}
+      defaultOpen={false}
+      autoConnect={true}
+      size="normal"
+      onWsConnect={() => console.log("WebSocket connected")}
+      onWsDisconnect={() => console.log("WebSocket disconnected")}
+      onWsError={(error) => console.error("WebSocket error:", error)}
+    >
+      {children}
+    </SupportProvider>
+  );
+}
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `publicKey` | `string` | env var | Your Cossistant public API key |
+| `defaultOpen` | `boolean` | `false` | Open the widget on mount |
+| `autoConnect` | `boolean` | `true` | Auto-connect to WebSocket |
+| `size` | `"normal" \| "larger"` | `"normal"` | Widget size preset |
+| `defaultMessages` | `DefaultMessage[]` | `[]` | Initial welcome messages |
+| `quickOptions` | `string[]` | `[]` | Default quick response options |
+| `apiUrl` | `string` | `https://api.cossistant.com/v1` | API endpoint (for self-hosting) |
+| `wsUrl` | `string` | `wss://api.cossistant.com/ws` | WebSocket endpoint |
+| `onWsConnect` | `() => void` | - | Callback when WebSocket connects |
+| `onWsDisconnect` | `() => void` | - | Callback when WebSocket disconnects |
+| `onWsError` | `(error: Error) => void` | - | Callback for WebSocket errors |
+
+### Environment Variables
+
+The SDK checks these environment variables in order:
+
+1. `NEXT_PUBLIC_COSSISTANT_API_KEY` (recommended)
+2. `NEXT_PUBLIC_COSSISTANT_PUBLIC_KEY`
+3. `publicKey` prop
+
+<Warning>
+  If no API key is found, the widget displays a configuration error with setup instructions.
+</Warning>
+
+## TypeScript Configuration
+
+The SDK includes built-in TypeScript support. No additional configuration needed!
+
+For optimal type inference, ensure your `tsconfig.json` includes:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true
+  }
+}
+```
+
+## Styling
+
+The widget includes default styles that work out of the box. You can customize them in several ways:
+
+### Import Default Styles
+
+Styles are automatically imported when you use the `Support` component. No additional imports needed.
+
+### Custom CSS Variables
+
+Override the design system in your `globals.css`:
+
+```css globals.css
+:root {
+  --cossistant-primary: #6366f1;
+  --cossistant-primary-hover: #4f46e5;
+  --cossistant-radius: 12px;
+}
+```
+
+### Tailwind Integration
+
+Pass Tailwind classes directly to components:
+
+```tsx
+<Support
+  classNames={{
+    trigger: "bg-purple-600 hover:bg-purple-700",
+    content: "border-purple-200 shadow-2xl",
+  }}
+/>
+```
+
+See the [Styling guide](/sdk/react/support-widget) for more customization options.
+
+## Troubleshooting
+
+### Widget doesn't appear
+
+<AccordionGroup>
+  <Accordion title="Check your API key">
+    Verify your `.env.local` file:
+    ```bash
+    cat .env.local
+    ```
+    The key should start with `pk_test_` or `pk_live_`.
+  </Accordion>
+
+  <Accordion title="Restart your dev server">
+    Next.js requires a restart to pick up new environment variables:
+    ```bash
+    # Stop the server (Ctrl+C), then:
+    npm run dev
+    ```
+  </Accordion>
+
+  <Accordion title="Check browser console">
+    Open DevTools (F12) and look for:
+    - Network errors (failed API requests)
+    - Console errors (component rendering issues)
+    - WebSocket connection status
+  </Accordion>
+
+  <Accordion title="Verify SupportProvider placement">
+    The `<SupportProvider>` must wrap your entire app in the root layout, not in individual pages.
+  </Accordion>
+</AccordionGroup>
+
+### TypeScript errors
+
+<AccordionGroup>
+  <Accordion title="'use client' is not defined">
+    Make sure you're using Next.js 13.5.2 or later with the App Router enabled.
+  </Accordion>
+
+  <Accordion title="Module not found">
+    Clear your Next.js cache and reinstall:
+    ```bash
+    rm -rf .next node_modules
+    npm install
+    npm run dev
+    ```
+  </Accordion>
+
+  <Accordion title="Type errors on Support component">
+    Update `@types/react` and `@types/react-dom` to version 18+:
+    ```bash
+    npm install -D @types/react@latest @types/react-dom@latest
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### WebSocket connection issues
+
+<AccordionGroup>
+  <Accordion title="Check your firewall">
+    Ensure WebSocket connections to `wss://api.cossistant.com` are allowed.
+  </Accordion>
+
+  <Accordion title="Monitor connection status">
+    Use the `onWsConnect` and `onWsError` callbacks to debug:
+    ```tsx
+    <SupportProvider
+      onWsConnect={() => console.log("✓ Connected")}
+      onWsError={(err) => console.error("✗ Error:", err)}
+    >
+    ```
+  </Accordion>
+
+  <Accordion title="Disable auto-connect">
+    Test without WebSocket:
+    ```tsx
+    <SupportProvider autoConnect={false}>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Server Components" icon="server" href="/sdk/nextjs/server-components">
+    Identify users with Server Components
+  </Card>
+  <Card title="Customization" icon="palette" href="/sdk/react/support-widget">
+    Style the widget to match your brand
+  </Card>
+  <Card title="Hooks" icon="code" href="/sdk/react/hooks">
+    Build custom UI with React hooks
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/overview">
+    Complete SDK API documentation
+  </Card>
+</CardGroup>
+
+## Example Projects
+
+<CardGroup cols={2}>
+  <Card title="Next.js + Tailwind" icon="github" href="https://github.com/cossistantcom/cossistant/tree/main/examples/nextjs-tailwind">
+    Full-featured example with auth and routing
+  </Card>
+  <Card title="E-commerce Demo" icon="cart-shopping" href="/quickstart">
+    Product support with order tracking
+  </Card>
+</CardGroup>

@@ -1,0 +1,605 @@
+---
+title: 'React Hooks'
+description: 'React hooks for conversations, messages, visitors, and real-time data'
+---
+
+The React SDK provides a comprehensive set of hooks for managing conversations, sending messages, tracking visitors, and handling real-time updates.
+
+## Core Hooks
+
+### useSupport
+
+Access the global support context containing website data, visitor info, and client instance.
+
+```tsx
+import { useSupport } from "@cossistant/react";
+
+function MyComponent() {
+  const {
+    website,
+    visitor,
+    client,
+    isLoading,
+    error,
+    unreadCount,
+    isOpen,
+    open,
+    close,
+    toggle,
+  } = useSupport();
+
+  return (
+    <div>
+      <p>Unread messages: {unreadCount}</p>
+      <button onClick={open}>Open Support</button>
+    </div>
+  );
+}
+```
+
+#### Return Value
+
+<ParamField path="website" type="PublicWebsiteResponse | null">
+  Current website configuration and settings
+</ParamField>
+
+<ParamField path="visitor" type="PublicVisitor | undefined">
+  Current visitor with normalized locale
+</ParamField>
+
+<ParamField path="client" type="CossistantClient | null">
+  REST API client instance
+</ParamField>
+
+<ParamField path="isLoading" type="boolean">
+  Whether the website data is loading
+</ParamField>
+
+<ParamField path="error" type="Error | null">
+  Error if website fetch failed
+</ParamField>
+
+<ParamField path="configurationError" type="ConfigurationError | null">
+  Configuration errors (missing API key, etc.)
+</ParamField>
+
+<ParamField path="unreadCount" type="number">
+  Number of unread messages across all conversations
+</ParamField>
+
+<ParamField path="isOpen" type="boolean">
+  Whether the support widget is open
+</ParamField>
+
+<ParamField path="open" type="() => void">
+  Function to open the support widget
+</ParamField>
+
+<ParamField path="close" type="() => void">
+  Function to close the support widget
+</ParamField>
+
+<ParamField path="toggle" type="() => void">
+  Function to toggle the widget open/closed
+</ParamField>
+
+<ParamField path="availableHumanAgents" type="Agent[]">
+  List of available human agents
+</ParamField>
+
+<ParamField path="availableAIAgents" type="AIAgent[]">
+  List of available AI agents
+</ParamField>
+
+---
+
+## Conversation Hooks
+
+### useConversations
+
+Fetch and subscribe to the authenticated visitor's conversation list.
+
+```tsx
+import { useConversations } from "@cossistant/react";
+
+function ConversationList() {
+  const { conversations, pagination, isLoading, error, refetch } = useConversations({
+    status: "open",
+    limit: 20,
+    page: 1,
+  });
+
+  if (isLoading) return <div>Loading conversations...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <ul>
+      {conversations.map((conversation) => (
+        <li key={conversation.id}>{conversation.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+#### Options
+
+<ParamField path="status" type="'open' | 'resolved' | 'spam'">
+  Filter conversations by status
+</ParamField>
+
+<ParamField path="limit" type="number">
+  Number of conversations per page
+</ParamField>
+
+<ParamField path="page" type="number">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="order" type="'asc' | 'desc'">
+  Sort order
+</ParamField>
+
+<ParamField path="orderBy" type="string">
+  Field to sort by
+</ParamField>
+
+<ParamField path="enabled" type="boolean" default="true">
+  Whether to automatically fetch data
+</ParamField>
+
+<ParamField path="refetchInterval" type="number | false" default="false">
+  Automatic refetch interval in milliseconds
+</ParamField>
+
+<ParamField path="refetchOnWindowFocus" type="boolean" default="true">
+  Whether to refetch when window regains focus
+</ParamField>
+
+#### Return Value
+
+<ParamField path="conversations" type="Conversation[]">
+  Array of conversations
+</ParamField>
+
+<ParamField path="pagination" type="ConversationPagination | null">
+  Pagination metadata (page, limit, total, hasMore)
+</ParamField>
+
+<ParamField path="isLoading" type="boolean">
+  Loading state (only true during initial load)
+</ParamField>
+
+<ParamField path="error" type="Error | null">
+  Error if fetch failed
+</ParamField>
+
+<ParamField path="refetch" type="(args?: Partial<ListConversationsRequest>) => Promise<ListConversationsResponse | undefined>">
+  Function to manually refetch conversations
+</ParamField>
+
+---
+
+### useConversation
+
+Load and cache a single conversation by ID.
+
+```tsx
+import { useConversation } from "@cossistant/react";
+
+function ConversationDetail({ conversationId }) {
+  const { conversation, isLoading, error, refetch } = useConversation(
+    conversationId,
+    {
+      enabled: true,
+      refetchInterval: false,
+    }
+  );
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  if (!conversation) return <div>Conversation not found</div>;
+
+  return (
+    <div>
+      <h2>{conversation.title}</h2>
+      <p>Status: {conversation.status}</p>
+    </div>
+  );
+}
+```
+
+#### Parameters
+
+<ParamField path="conversationId" type="string | null" required>
+  ID of the conversation to fetch. Pass `null` to skip fetching
+</ParamField>
+
+<ParamField path="options" type="UseConversationOptions">
+  Query options (enabled, refetchInterval, refetchOnWindowFocus)
+</ParamField>
+
+#### Return Value
+
+<ParamField path="conversation" type="Conversation | null">
+  The conversation object, or null if not found
+</ParamField>
+
+<ParamField path="isLoading" type="boolean">
+  Loading state
+</ParamField>
+
+<ParamField path="error" type="Error | null">
+  Error if fetch failed
+</ParamField>
+
+<ParamField path="refetch" type="(args?: GetConversationRequest) => Promise<GetConversationResponse | undefined>">
+  Function to manually refetch the conversation
+</ParamField>
+
+---
+
+### useCreateConversation
+
+Imperatively create a new conversation.
+
+```tsx
+import { useCreateConversation } from "@cossistant/react";
+
+function NewConversationButton() {
+  const { mutate, mutateAsync, isPending, error } = useCreateConversation({
+    onSuccess: (data) => {
+      console.log("Conversation created:", data.conversation.id);
+    },
+    onError: (error) => {
+      console.error("Failed to create conversation:", error);
+    },
+  });
+
+  const handleClick = () => {
+    mutate({
+      title: "New Support Request",
+      defaultTimelineItems: [],
+    });
+  };
+
+  return (
+    <button onClick={handleClick} disabled={isPending}>
+      {isPending ? "Creating..." : "New Conversation"}
+    </button>
+  );
+}
+```
+
+#### Options
+
+<ParamField path="onSuccess" type="(data: CreateConversationResponseBody) => void">
+  Called when conversation is created successfully
+</ParamField>
+
+<ParamField path="onError" type="(error: Error) => void">
+  Called when conversation creation fails
+</ParamField>
+
+#### Return Value
+
+<ParamField path="mutate" type="(variables?: CreateConversationVariables) => void">
+  Trigger conversation creation (fire-and-forget)
+</ParamField>
+
+<ParamField path="mutateAsync" type="(variables?: CreateConversationVariables) => Promise<CreateConversationResponseBody | null>">
+  Trigger conversation creation and await result
+</ParamField>
+
+<ParamField path="isPending" type="boolean">
+  Whether creation is in progress
+</ParamField>
+
+<ParamField path="error" type="Error | null">
+  Error if creation failed
+</ParamField>
+
+<ParamField path="reset" type="() => void">
+  Reset error state
+</ParamField>
+
+---
+
+### useConversationTimeline
+
+Get grouped timeline items, seen data, and typing state for a conversation.
+
+```tsx
+import { useConversationTimeline } from "@cossistant/react";
+
+function ConversationView({ conversationId, timelineItems, visitorId }) {
+  const {
+    groupedMessages,
+    seenData,
+    processing,
+    typingEntries,
+    typingParticipants,
+  } = useConversationTimeline({
+    conversationId,
+    items: timelineItems,
+    currentVisitorId: visitorId,
+  });
+
+  return (
+    <div>
+      {groupedMessages.map((group) => (
+        <MessageGroup key={group.id} group={group} />
+      ))}
+      
+      {typingParticipants.length > 0 && (
+        <TypingIndicator participants={typingParticipants} />
+      )}
+    </div>
+  );
+}
+```
+
+#### Parameters
+
+<ParamField path="conversationId" type="string" required>
+  ID of the conversation
+</ParamField>
+
+<ParamField path="items" type="TimelineItem[]" required>
+  Array of timeline items to process
+</ParamField>
+
+<ParamField path="currentVisitorId" type="string">
+  ID of the current visitor (to exclude from typing indicators)
+</ParamField>
+
+#### Return Value
+
+<ParamField path="groupedMessages" type="GroupedMessage[]">
+  Timeline items grouped by sender and time proximity
+</ParamField>
+
+<ParamField path="seenData" type="SeenData">
+  Read receipt data for the conversation
+</ParamField>
+
+<ParamField path="processing" type="ProcessingState">
+  Processing state for AI agent responses
+</ParamField>
+
+<ParamField path="typingEntries" type="TypingEntry[]">
+  Raw typing state entries
+</ParamField>
+
+<ParamField path="typingParticipants" type="TypingParticipant[]">
+  Formatted typing participants for display
+</ParamField>
+
+---
+
+## Message Hooks
+
+### useSendMessage
+
+Send visitor messages with optimistic updates and file uploads.
+
+```tsx
+import { useSendMessage } from "@cossistant/react";
+
+function MessageComposer({ conversationId }) {
+  const { mutate, isPending, isUploading, error } = useSendMessage();
+  const [message, setMessage] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+
+  const handleSubmit = () => {
+    mutate({
+      conversationId,
+      message,
+      files,
+      onSuccess: (conversationId, messageId) => {
+        setMessage("");
+        setFiles([]);
+        console.log("Message sent:", messageId);
+      },
+      onError: (error) => {
+        console.error("Failed to send:", error);
+      },
+    });
+  };
+
+  return (
+    <div>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Type a message..."
+      />
+      <input
+        type="file"
+        multiple
+        onChange={(e) => setFiles(Array.from(e.target.files || []))}
+      />
+      <button onClick={handleSubmit} disabled={isPending || isUploading}>
+        {isUploading ? "Uploading..." : isPending ? "Sending..." : "Send"}
+      </button>
+      {error && <div>Error: {error.message}</div>}
+    </div>
+  );
+}
+```
+
+#### Message Options
+
+<ParamField path="conversationId" type="string | null">
+  Conversation ID. If null, creates a new conversation
+</ParamField>
+
+<ParamField path="message" type="string" required>
+  Text content of the message
+</ParamField>
+
+<ParamField path="files" type="File[]">
+  Array of files to upload with the message
+</ParamField>
+
+<ParamField path="messageId" type="string">
+  Optional custom message ID (ULID generated if not provided)
+</ParamField>
+
+<ParamField path="defaultTimelineItems" type="TimelineItem[]">
+  Default messages for new conversations
+</ParamField>
+
+<ParamField path="onSuccess" type="(conversationId: string, messageId: string) => void">
+  Called when message is sent successfully
+</ParamField>
+
+<ParamField path="onError" type="(error: Error) => void">
+  Called when message fails to send
+</ParamField>
+
+<ParamField path="onConversationInitiated" type="(conversationId: string) => void">
+  Called immediately when a new conversation is initiated (before API call)
+</ParamField>
+
+#### Return Value
+
+<ParamField path="mutate" type="(options: SendMessageOptions) => void">
+  Send a message (fire-and-forget)
+</ParamField>
+
+<ParamField path="mutateAsync" type="(options: SendMessageOptions) => Promise<SendMessageResult | null>">
+  Send a message and await result
+</ParamField>
+
+<ParamField path="isPending" type="boolean">
+  Whether message is being sent
+</ParamField>
+
+<ParamField path="isUploading" type="boolean">
+  Whether files are being uploaded
+</ParamField>
+
+<ParamField path="error" type="Error | null">
+  Error if send failed
+</ParamField>
+
+<ParamField path="reset" type="() => void">
+  Reset error state
+</ParamField>
+
+---
+
+## Visitor Hooks
+
+### useVisitor
+
+Access the current visitor and methods to identify or update metadata.
+
+```tsx
+import { useVisitor } from "@cossistant/react";
+
+function UserProfile() {
+  const { visitor, identify, setVisitorMetadata } = useVisitor();
+
+  const handleIdentify = async () => {
+    const result = await identify({
+      externalId: "user-123",
+      email: "user@example.com",
+      name: "John Doe",
+      image: "https://example.com/avatar.jpg",
+      metadata: {
+        plan: "pro",
+        company: "Acme Inc",
+      },
+    });
+    
+    if (result) {
+      console.log("Visitor identified:", result.contactId);
+    }
+  };
+
+  const handleUpdateMetadata = async () => {
+    await setVisitorMetadata({
+      lastSeen: new Date().toISOString(),
+      pageViews: 10,
+    });
+  };
+
+  return (
+    <div>
+      {visitor ? (
+        <p>Visitor ID: {visitor.id}</p>
+      ) : (
+        <button onClick={handleIdentify}>Identify</button>
+      )}
+    </div>
+  );
+}
+```
+
+#### Return Value
+
+<ParamField path="visitor" type="PublicVisitor | null">
+  Current visitor object
+</ParamField>
+
+<ParamField path="identify" type="(params: IdentifyParams) => Promise<{ contactId: string; visitorId: string } | null>">
+  Identify the visitor with external ID, email, name, image, or metadata
+</ParamField>
+
+<ParamField path="setVisitorMetadata" type="(metadata: VisitorMetadata) => Promise<VisitorResponse | null>">
+  Update visitor metadata (requires prior identification)
+</ParamField>
+
+---
+
+## Utility Hooks
+
+### useFileUpload
+
+Handle file uploads with validation and progress tracking.
+
+### useMessageComposer
+
+Manage message input state with validation.
+
+### useConversationSeen
+
+Track and update seen status for conversations.
+
+### useConversationTyping
+
+Subscribe to typing indicators for a conversation.
+
+### useRealtimeSupport
+
+Manage WebSocket connection for real-time updates.
+
+### useNewMessageSound
+
+Play sound effects for new messages.
+
+### useWindowVisibilityFocus
+
+Detect when the window gains/loses focus.
+
+---
+
+## Best Practices
+
+<Card title="Error Handling" icon="triangle-exclamation">
+  Always handle errors from mutation hooks. Display user-friendly error messages and provide retry options.
+</Card>
+
+<Card title="Loading States" icon="spinner">
+  Show loading indicators during async operations. Disable buttons during pending states to prevent duplicate submissions.
+</Card>
+
+<Card title="Optimistic Updates" icon="bolt">
+  `useSendMessage` provides optimistic updates automatically. The message appears instantly while the API call completes in the background.
+</Card>
+
+<Card title="Real-time Data" icon="tower-broadcast">
+  Conversation and message data updates in real-time via WebSocket. You don't need to manually poll for changes.
+</Card>

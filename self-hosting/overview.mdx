@@ -1,0 +1,185 @@
+---
+title: Self-Hosting Overview
+description: Deploy and manage your own Cossistant instance
+icon: server
+---
+
+## Introduction
+
+Cossistant can be self-hosted, giving you complete control over your data, infrastructure, and deployment environment. This guide covers everything you need to know about deploying and managing your own Cossistant instance.
+
+## Architecture
+
+Cossistant is built as a modern monorepo application with the following core components:
+
+<CardGroup cols={2}>
+  <Card title="API Server" icon="code">
+    Hono-based API server with tRPC endpoints, REST API, and WebSocket support
+  </Card>
+  <Card title="Workers" icon="gear">
+    Background job processors for async tasks, notifications, and AI operations
+  </Card>
+  <Card title="PostgreSQL" icon="database">
+    Primary database with pgvector extension for embeddings and vector search
+  </Card>
+  <Card title="Redis" icon="bolt">
+    Cache layer, session storage, and real-time message queue
+  </Card>
+</CardGroup>
+
+## Tech Stack
+
+- **Runtime**: Bun (JavaScript/TypeScript runtime)
+- **API Framework**: Hono with tRPC
+- **Database**: PostgreSQL 17 with pgvector extension
+- **ORM**: Drizzle ORM
+- **Cache**: Redis 7
+- **Authentication**: Better Auth
+- **Queue**: Upstash QStash (optional for production)
+- **File Storage**: S3-compatible storage
+- **Analytics**: Tinybird (optional)
+
+## Deployment Options
+
+### Docker Compose (Recommended)
+
+The easiest way to self-host Cossistant for development and small-scale production deployments. Includes PostgreSQL and Redis containers.
+
+[Learn more about Docker deployment →](/self-hosting/docker)
+
+### Manual Installation
+
+For production environments or custom infrastructure setups where you want full control over each component.
+
+<Steps>
+  <Step title="Install Bun runtime">
+    Install [Bun](https://bun.sh) v1.0 or higher
+  </Step>
+  
+  <Step title="Set up databases">
+    Provision PostgreSQL 17 with pgvector and Redis 7
+  </Step>
+  
+  <Step title="Configure environment">
+    Set all required environment variables
+  </Step>
+  
+  <Step title="Run migrations">
+    Initialize the database schema
+  </Step>
+  
+  <Step title="Start services">
+    Launch API server and worker processes
+  </Step>
+</Steps>
+
+### Cloud Platforms
+
+Cossistant can be deployed to any platform that supports containerized applications:
+
+- **Railway**: Automatic deployments with built-in PostgreSQL and Redis
+- **Render**: Docker-based deployments with managed databases
+- **DigitalOcean App Platform**: Container support with managed databases
+- **AWS ECS/EKS**: Full control for enterprise deployments
+- **Google Cloud Run**: Serverless container deployments
+- **Azure Container Instances**: Managed container hosting
+
+## System Requirements
+
+### Minimum Requirements
+
+- **CPU**: 2 cores
+- **RAM**: 4GB
+- **Storage**: 20GB
+- **PostgreSQL**: 17+ with pgvector extension
+- **Redis**: 7+
+- **Bun**: 1.0+
+
+### Recommended for Production
+
+- **CPU**: 4+ cores
+- **RAM**: 8GB+
+- **Storage**: 100GB+ SSD
+- **Database**: Managed PostgreSQL service with regular backups
+- **Cache**: Managed Redis service
+- **CDN**: CloudFlare or similar for static assets
+- **Monitoring**: Application performance monitoring (APM) solution
+
+## Required Services
+
+### Core Services (Required)
+
+<ParamField path="PostgreSQL" type="database" required>
+  Primary data store. Must have pgvector extension installed for AI embeddings and semantic search.
+</ParamField>
+
+<ParamField path="Redis" type="cache" required>
+  Used for caching, session management, and real-time features.
+</ParamField>
+
+### External Services
+
+<ParamField path="S3-Compatible Storage" type="service" required>
+  For file uploads and attachments. Works with AWS S3, Cloudflare R2, MinIO, or any S3-compatible service.
+</ParamField>
+
+<ParamField path="Email Provider" type="service" required>
+  Resend is used for transactional emails (password resets, notifications).
+</ParamField>
+
+<ParamField path="OAuth Providers" type="service" optional>
+  Google and GitHub OAuth for user authentication (optional, email auth works without these).
+</ParamField>
+
+<ParamField path="OpenRouter" type="service" optional>
+  For AI agent functionality and embeddings. Required only if using AI features.
+</ParamField>
+
+<ParamField path="QStash" type="service" optional>
+  Upstash QStash for reliable background job processing in production. Development mode works without it.
+</ParamField>
+
+<ParamField path="Tinybird" type="service" optional>
+  Analytics and usage tracking. Completely optional.
+</ParamField>
+
+## Security Considerations
+
+<Warning>
+  **Important**: Always use strong, randomly generated secrets for production deployments. Never use the example values from `.env.example`.
+</Warning>
+
+### Best Practices
+
+1. **Generate strong secrets**: Use `openssl rand -base64 32` for all secret values
+2. **Enable SSL**: Always use HTTPS in production with valid TLS certificates
+3. **Database security**: Enable SSL connections to PostgreSQL in production
+4. **Network isolation**: Use private networks for database and Redis connections
+5. **Regular updates**: Keep dependencies and base images up to date
+6. **Backup strategy**: Implement automated PostgreSQL backups
+7. **Monitoring**: Set up logging and monitoring for security events
+
+## License
+
+Cossistant is licensed under **AGPL-3.0** for non-commercial use.
+
+<Info>
+  For commercial use or deployments requiring a setup fee, please contact [anthony@cossistant.com](mailto:anthony@cossistant.com) for a commercial license.
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Setup" icon="docker" href="/self-hosting/docker">
+    Quick start with Docker Compose
+  </Card>
+  <Card title="Environment Variables" icon="sliders" href="/self-hosting/environment-variables">
+    Configure your instance
+  </Card>
+  <Card title="Database Setup" icon="database" href="/self-hosting/database-setup">
+    Initialize and migrate your database
+  </Card>
+  <Card title="Production Deployment" icon="rocket" href="/self-hosting/docker">
+    Deploy to production
+  </Card>
+</CardGroup>

@@ -1,0 +1,367 @@
+---
+title: 'Team Management'
+description: 'Invite team members, manage permissions, and collaborate on customer support in Cossistant'
+icon: 'users'
+---
+
+# Team Management
+
+Cossistant enables seamless team collaboration on customer support. Invite colleagues, assign roles, and work together to deliver exceptional customer experiences.
+
+## Team Settings Overview
+
+Access team management from **Settings > Team** in your dashboard. Here you can:
+
+- View all team members with access
+- Manage pending invitations
+- Monitor seat usage against your plan limits
+- Control member roles and permissions
+
+## Inviting Team Members
+
+Add collaborators to your Cossistant workspace:
+
+<Steps>
+  <Step title="Navigate to Team Settings">
+    Click **Settings** in the top navigation, then select **Team**
+  </Step>
+  <Step title="Click Invite">
+    Click the "Invite" button in the top-right corner
+  </Step>
+  <Step title="Enter Email Address">
+    Provide the email address of the person you want to invite
+  </Step>
+  <Step title="Choose Access Level">
+    Select organization-wide or website-specific access
+  </Step>
+  <Step title="Send Invitation">
+    Click "Send Invite" - they'll receive an email with a join link
+  </Step>
+</Steps>
+
+<Note>
+Invited users receive an email with a secure link to join your organization. Invitations expire after 7 days.
+</Note>
+
+## Team Roles and Permissions
+
+Cossistant has three role levels with different permissions:
+
+### Owner
+
+The account creator with full control:
+
+- **Full Access**: All websites and features
+- **Billing**: Manage subscription and payment methods
+- **Team Management**: Add/remove any members, change roles
+- **Settings**: Configure all organization and website settings
+- **Deletion**: Can delete websites and close account
+
+<Warning>
+Owner role cannot be transferred or removed. Each organization has exactly one owner.
+</Warning>
+
+### Admin
+
+Organization-level administrators:
+
+- **All Websites**: Access to all websites in the organization
+- **Team Management**: Invite members and manage roles (except owner)
+- **Settings**: Configure websites and AI agents
+- **Conversations**: View and respond to all conversations
+- **Limited Billing**: View billing information (cannot modify)
+
+### Member
+
+Standard team member with scoped access:
+
+- **Assigned Websites**: Only access specific websites they're invited to
+- **Conversations**: View and respond to conversations
+- **AI Agent**: View AI agent settings (cannot modify)
+- **No Team Management**: Cannot invite others or change roles
+- **No Billing**: Cannot view or modify billing information
+
+## Managing Team Members
+
+### Viewing Current Members
+
+The **Members with Access** section shows:
+
+- **Profile**: Avatar, name, and email address
+- **Role**: Current permission level (Owner, Admin, Member)
+- **Access Scope**: Organization-wide or website-specific
+- **Last Seen**: When they last accessed the dashboard
+- **Online Status**: Green indicator shows currently active members
+
+### Changing Member Roles
+
+Update permissions for team members:
+
+<Steps>
+  <Step title="Find the Member">
+    Locate the team member in the Members list
+  </Step>
+  <Step title="Open Actions Menu">
+    Click the three-dot menu next to their name
+  </Step>
+  <Step title="Select New Role">
+    Choose "Make organization admin" or "Make organization member"
+  </Step>
+  <Step title="Confirm Change">
+    Confirm the role change in the dialog that appears
+  </Step>
+</Steps>
+
+<Note>
+Only Admins and the Owner can change member roles. You cannot change the Owner's role or your own role.
+</Note>
+
+### Removing Team Members
+
+Revoke access when someone leaves your team:
+
+<Steps>
+  <Step title="Open Member Menu">
+    Click the three-dot menu next to the member's name
+  </Step>
+  <Step title="Select Remove Access">
+    Click "Remove access" (displayed in red)
+  </Step>
+  <Step title="Confirm Removal">
+    Confirm the action in the dialog that appears
+  </Step>
+</Steps>
+
+<Warning>
+Removing a member is immediate and they'll lose access to all conversations and settings. This action cannot be undone (but you can re-invite them).
+</Warning>
+
+## Managing Invitations
+
+### Viewing Pending Invitations
+
+The **Invitations** section shows all sent invites:
+
+- **Email Address**: Who the invitation was sent to
+- **Status**: Pending, Accepted, Declined, or Expired
+- **Sent By**: Team member who sent the invitation
+- **Expiration**: When the invitation will expire
+
+### Invitation Statuses
+
+- **Pending**: Invitation sent, awaiting response
+- **Accepted**: User has joined your organization
+- **Declined**: User rejected the invitation
+- **Expired**: Invitation expired after 7 days
+- **Canceled**: Invitation was manually canceled
+
+### Resending Invitations
+
+If an invitation wasn't received or expired:
+
+1. Find the invitation in the Invitations list
+2. Click the three-dot menu next to it
+3. Select "Resend invitation"
+4. A new invitation email is sent with a fresh expiration date
+
+<Tip>
+Resending an expired invitation automatically reactivates it with a new 7-day expiration.
+</Tip>
+
+### Canceling Invitations
+
+Revoke an invitation before it's accepted:
+
+1. Locate the pending invitation
+2. Click the three-dot menu
+3. Select "Cancel invitation"
+4. Confirm the cancellation
+
+## Seat Limits and Plans
+
+### Understanding Seat Usage
+
+Your plan determines how many team members can access your workspace:
+
+<Note>
+**Seat Limits by Plan:**
+- **Free Plan**: 1 seat (owner only)
+- **Hobby Plan**: 3 seats
+- **Pro Plan**: 10 seats
+- **Enterprise**: Custom seat count
+</Note>
+
+### Seat Usage Display
+
+The Team Settings page shows:
+
+```
+Seats Used: 2 / 3
+1 seat remaining
+```
+
+**What Counts as a Seat:**
+- Active team members (Owner, Admins, Members)
+- Pending invitations count against your limit
+- Accepted invitations become active seats
+- Canceled/expired invitations free up seats
+
+### Reaching Seat Limit
+
+When all seats are full:
+
+- The "Invite" button is disabled
+- A message appears: "You've reached your seat limit"
+- An "Upgrade" button lets you increase capacity
+- Cancel pending invitations to free up seats
+
+<Tip>
+Pending invitations count against your limit. Cancel unused invitations to free seats for new team members.
+</Tip>
+
+## Collaboration Features
+
+### Conversation Participants
+
+Team members working on conversations:
+
+- **Auto-Added**: Sending a message automatically adds you as a participant
+- **Visible to All**: All team members see who's involved
+- **Participant List**: View all participants in the conversation sidebar
+
+### Real-Time Presence
+
+See when team members are active:
+
+- **Online Indicators**: Green dot next to active members
+- **Typing Indicators**: See when colleagues are typing responses
+- **Last Seen**: View when team members last accessed the dashboard
+
+### Internal Notes
+
+Communicate privately within conversations:
+
+- **Team-Only Messages**: Write notes only your team can see
+- **Context Sharing**: Coordinate responses without confusing visitors
+- **Marked with Lock Icon**: Easy to identify private messages
+
+## Access Levels
+
+### Organization-Wide Access
+
+Admins have automatic access to:
+
+- All current websites in the organization
+- Any new websites created in the future
+- Organization settings and billing (view-only for non-owners)
+
+### Website-Specific Access
+
+Members can be granted access to:
+
+- Individual websites only
+- No access to other websites in the organization
+- No organization-level settings
+
+<Note>
+To give a Member access to all websites, promote them to Admin role.
+</Note>
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Review Regularly" icon="calendar">
+    Audit team access quarterly - remove inactive members
+  </Card>
+  <Card title="Principle of Least Privilege" icon="shield">
+    Grant minimum permissions needed for each role
+  </Card>
+  <Card title="Prompt Offboarding" icon="user-minus">
+    Remove access immediately when team members leave
+  </Card>
+  <Card title="Monitor Activity" icon="eye">
+    Check Last Seen dates to identify inactive accounts
+  </Card>
+</CardGroup>
+
+## Team Workflow Tips
+
+### Assigning Conversations
+
+While Cossistant doesn't have formal assignment:
+
+- Use internal notes to indicate who's handling a conversation
+- Check participant lists to see who's involved
+- Look for typing indicators before jumping into a conversation
+
+### Coverage During Off-Hours
+
+Maximize your AI agent:
+
+- Let AI handle routine questions 24/7
+- Train your AI thoroughly for common scenarios
+- Team members can follow up on AI conversations during business hours
+
+### Handoffs Between Team Members
+
+Transition conversations smoothly:
+
+1. Write an internal note summarizing the context
+2. Tag important details for the next person
+3. Use conversation titles to indicate status
+4. Mark conversations as resolved when done
+
+## Upgrading for More Seats
+
+When you need more team members:
+
+<Steps>
+  <Step title="Click Upgrade">
+    Click the "Upgrade" button on the Team Settings page
+  </Step>
+  <Step title="Select Plan">
+    Choose a plan with sufficient seats for your team
+  </Step>
+  <Step title="Complete Payment">
+    Enter payment details and confirm the upgrade
+  </Step>
+  <Step title="Invite Members">
+    New seats are available immediately - start inviting
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Invitation Not Received
+
+**Solutions:**
+- Check spam/junk folder
+- Verify correct email address was entered
+- Resend the invitation
+- Contact support if still not received
+
+### Member Cannot Access Website
+
+**Possible causes:**
+- Member role without specific website access
+- Invitation not yet accepted
+- Account not fully activated
+
+**Solutions:**
+- Verify member accepted the invitation
+- Check if member has correct role (Admin vs Member)
+- Promote to Admin for organization-wide access
+
+### Seat Count Seems Wrong
+
+**Check these factors:**
+- Pending invitations count against limit
+- Expired invitations may not have cleared
+- Cancel unused invitations to free seats
+- Refresh the page to see updated count
+
+## Next Steps
+
+- [Manage Conversations](/dashboard/conversations) - Collaborate on customer support
+- [Dashboard Overview](/dashboard/overview) - Learn the full dashboard
+- [Configure Settings](/dashboard/overview) - Customize your workspace

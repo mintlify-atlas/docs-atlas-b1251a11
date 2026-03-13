@@ -1,0 +1,352 @@
+---
+title: 'useConversation'
+description: 'Load and manage a single conversation in React'
+---
+
+# useConversation
+
+React hook for loading and caching a single conversation with its metadata.
+
+## Import
+
+```typescript
+import { useConversation } from '@cossistant/react';
+```
+
+## Basic Usage
+
+```tsx
+import { useConversation } from '@cossistant/react';
+
+function ConversationView({ conversationId }: { conversationId: string }) {
+  const { conversation, isLoading, error, refetch } = useConversation(conversationId);
+  
+  if (isLoading) {
+    return <div>Loading conversation...</div>;
+  }
+  
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+  
+  if (!conversation) {
+    return <div>Conversation not found</div>;
+  }
+  
+  return (
+    <div>
+      <h1>{conversation.title || 'Untitled Conversation'}</h1>
+      <p>Status: {conversation.status}</p>
+      <p>Created: {new Date(conversation.createdAt).toLocaleDateString()}</p>
+      {conversation.visitorRating && (
+        <p>Rating: {conversation.visitorRating}/5</p>
+      )}
+    </div>
+  );
+}
+```
+
+## API Reference
+
+### Parameters
+
+<ParamField path="conversationId" type="string | null" required>
+  The conversation ID to load. Pass `null` to skip loading.
+</ParamField>
+
+<ParamField path="options" type="object">
+  Optional configuration object
+  
+  <Expandable title="Options Properties">
+    <ParamField path="enabled" type="boolean" default="true">
+      Whether to automatically fetch the conversation
+    </ParamField>
+    
+    <ParamField path="refetchInterval" type="number | false" default="false">
+      Polling interval in milliseconds. Set to `false` to disable polling.
+    </ParamField>
+    
+    <ParamField path="refetchOnWindowFocus" type="boolean" default="false">
+      Whether to refetch when window regains focus
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Return Value
+
+<ResponseField name="conversation" type="object | null">
+  The conversation object with all metadata
+  
+  <Expandable title="Conversation Properties">
+    <ResponseField name="id" type="string">
+      Conversation ID
+    </ResponseField>
+    
+    <ResponseField name="title" type="string | null">
+      Conversation title (auto-generated or custom)
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      `open`, `resolved`, or `spam`
+    </ResponseField>
+    
+    <ResponseField name="visitorId" type="string">
+      Owner visitor ID
+    </ResponseField>
+    
+    <ResponseField name="websiteId" type="string">
+      Website ID
+    </ResponseField>
+    
+    <ResponseField name="visitorRating" type="number | null">
+      Visitor's rating (1-5)
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    
+    <ResponseField name="lastTimelineItem" type="object | null">
+      Most recent message/event
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  Whether the conversation is currently being fetched. Returns `false` if conversation is already cached.
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  Error object if the request failed
+</ResponseField>
+
+<ResponseField name="refetch" type="function">
+  Function to manually refetch the conversation
+  
+  ```typescript
+  refetch(args?: { conversationId: string }) => Promise<GetConversationResponse | undefined>
+  ```
+</ResponseField>
+
+## Examples
+
+### Conditional Loading
+
+Only load when needed:
+
+```tsx
+function ConversationDetails({ conversationId }: { conversationId: string | null }) {
+  const { conversation, isLoading } = useConversation(conversationId, {
+    enabled: conversationId !== null
+  });
+  
+  if (!conversationId) {
+    return <div>Select a conversation</div>;
+  }
+  
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  
+  return <div>{conversation?.title}</div>;
+}
+```
+
+### Auto-Refresh with Polling
+
+Keep conversation data fresh:
+
+```tsx
+function LiveConversationStatus({ conversationId }: { conversationId: string }) {
+  const { conversation } = useConversation(conversationId, {
+    refetchInterval: 10000, // Poll every 10 seconds
+    refetchOnWindowFocus: true
+  });
+  
+  return (
+    <div className={`status-${conversation?.status}`}>
+      {conversation?.status}
+    </div>
+  );
+}
+```
+
+### Manual Refetch
+
+Trigger refetch on user action:
+
+```tsx
+function ConversationHeader({ conversationId }: { conversationId: string }) {
+  const { conversation, refetch, isLoading } = useConversation(conversationId);
+  
+  const handleRefresh = async () => {
+    await refetch();
+  };
+  
+  return (
+    <div>
+      <h1>{conversation?.title}</h1>
+      <button onClick={handleRefresh} disabled={isLoading}>
+        {isLoading ? 'Refreshing...' : 'Refresh'}
+      </button>
+    </div>
+  );
+}
+```
+
+### Display Rating
+
+Show visitor feedback:
+
+```tsx
+function ConversationRating({ conversationId }: { conversationId: string }) {
+  const { conversation } = useConversation(conversationId);
+  
+  if (!conversation?.visitorRating) {
+    return null;
+  }
+  
+  return (
+    <div className="rating">
+      <span className="stars">
+        {'★'.repeat(conversation.visitorRating)}
+        {'☆'.repeat(5 - conversation.visitorRating)}
+      </span>
+      <span className="date">
+        Rated {new Date(conversation.visitorRatingAt!).toLocaleDateString()}
+      </span>
+    </div>
+  );
+}
+```
+
+### Last Message Preview
+
+Show most recent message:
+
+```tsx
+function ConversationPreview({ conversationId }: { conversationId: string }) {
+  const { conversation } = useConversation(conversationId);
+  
+  const lastMessage = conversation?.lastTimelineItem;
+  
+  return (
+    <div className="preview">
+      <h3>{conversation?.title || 'New Conversation'}</h3>
+      {lastMessage && (
+        <p className="last-message">
+          {lastMessage.text}
+        </p>
+      )}
+      <time>{new Date(conversation?.updatedAt || '').toLocaleString()}</time>
+    </div>
+  );
+}
+```
+
+## Data Caching
+
+The hook automatically caches conversation data in the client's conversation store:
+
+- First call fetches from API
+- Subsequent calls return cached data instantly
+- Updates via WebSocket automatically update the cache
+- Manual refetch updates the cache
+
+## Real-Time Updates
+
+Combine with WebSocket for real-time updates:
+
+```tsx
+import { useConversation, useRealtimeSupport } from '@cossistant/react';
+
+function LiveConversation({ conversationId }: { conversationId: string }) {
+  const { conversation } = useConversation(conversationId);
+  
+  useRealtimeSupport({
+    onEvent: (event) => {
+      if (event.type === 'conversationUpdated' && 
+          event.payload.conversationId === conversationId) {
+        // Conversation store is automatically updated
+        console.log('Conversation updated:', event.payload.updates);
+      }
+    }
+  });
+  
+  return (
+    <div>
+      <h1>{conversation?.title}</h1>
+      <p>Status: {conversation?.status}</p>
+    </div>
+  );
+}
+```
+
+## TypeScript Support
+
+Full type safety with TypeScript:
+
+```typescript
+import { useConversation } from '@cossistant/react';
+import type { UseConversationOptions, UseConversationResult } from '@cossistant/react';
+
+function MyComponent() {
+  const result: UseConversationResult = useConversation('conv_123');
+  
+  // All properties are fully typed
+  const title: string | undefined = result.conversation?.title;
+  const status: 'open' | 'resolved' | 'spam' | undefined = result.conversation?.status;
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use null for optional conversations">
+    ```tsx
+    // Good: Pass null when no conversation is selected
+    const { conversation } = useConversation(selectedId || null);
+    
+    // Avoid: Conditional hook calls
+    if (selectedId) {
+      const { conversation } = useConversation(selectedId);
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Disable polling in background">
+    ```tsx
+    const [isActive, setIsActive] = useState(true);
+    
+    useConversation(conversationId, {
+      refetchInterval: isActive ? 10000 : false
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Combine with other hooks">
+    ```tsx
+    const { conversation } = useConversation(conversationId);
+    const { items } = useConversationTimeline(conversationId);
+    const { mutate: sendMessage } = useSendMessage();
+    
+    // Full conversation management
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Hooks
+
+<CardGroup cols={2}>
+  <Card title="useConversations" icon="list" href="/sdk/react/hooks">
+    List multiple conversations
+  </Card>
+  
+  <Card title="useSendMessage" icon="paper-plane" href="/api/hooks/use-send-message">
+    Send messages to conversation
+  </Card>
+</CardGroup>

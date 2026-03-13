@@ -1,80 +1,357 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get Cossistant running in your React or Next.js app in under 5 minutes
 ---
 
-## Get started in three steps
+Get your support widget up and running in minutes. This guide walks you through installing Cossistant, adding it to your app, and customizing the experience for your users.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, make sure you have:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+- A React 18+ or Next.js 13.5+ project
+- A Cossistant account with an API key ([create one for free](https://cossistant.com))
+- Node.js 18+ and a package manager (npm, yarn, pnpm, or bun)
 
-### Step 2: Deploy your changes
+## Installation
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Steps>
+  <Step title="Install the package">
+    Choose the package that matches your framework:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    <CodeGroup>
+      ```bash npm (React)
+      npm install @cossistant/react
+      ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+      ```bash npm (Next.js)
+      npm install @cossistant/next
+      ```
 
-### Step 3: Go live
+      ```bash yarn (React)
+      yarn add @cossistant/react
+      ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+      ```bash yarn (Next.js)
+      yarn add @cossistant/next
+      ```
 
-## Next steps
+      ```bash pnpm (React)
+      pnpm add @cossistant/react
+      ```
 
-Now that you have your docs running, explore these key features:
+      ```bash pnpm (Next.js)
+      pnpm add @cossistant/next
+      ```
+
+      ```bash bun (React)
+      bun add @cossistant/react
+      ```
+
+      ```bash bun (Next.js)
+      bun add @cossistant/next
+      ```
+    </CodeGroup>
+
+    <Note>
+      The `@cossistant/next` package is a thin wrapper around `@cossistant/react` optimized for Next.js. All features and APIs are identical.
+    </Note>
+  </Step>
+
+  <Step title="Add your API key">
+    Add your Cossistant public API key to your environment variables. The SDK auto-detects the correct variable based on your framework:
+
+    <CodeGroup>
+      ```bash .env (Next.js)
+      NEXT_PUBLIC_COSSISTANT_API_KEY=your_public_api_key_here
+      ```
+
+      ```bash .env (Vite)
+      VITE_COSSISTANT_API_KEY=your_public_api_key_here
+      ```
+
+      ```bash .env (Other)
+      COSSISTANT_API_KEY=your_public_api_key_here
+      ```
+    </CodeGroup>
+
+    <Tip>
+      Get your API key from the [Cossistant dashboard](https://cossistant.com/dashboard/settings/api-keys) under Settings → API Keys.
+    </Tip>
+  </Step>
+
+  <Step title="Wrap your app with SupportProvider">
+    The `SupportProvider` manages authentication, real-time connections, and state. Wrap your application at the root level:
+
+    <CodeGroup>
+      ```tsx app/layout.tsx (Next.js App Router)
+      import { SupportProvider } from "@cossistant/next";
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "My App",
+  description: "My awesome application",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <SupportProvider>{children}</SupportProvider>
+      </body>
+    </html>
+  );
+}
+      ```
+
+      ```tsx App.tsx (React / Vite)
+      import { SupportProvider } from "@cossistant/react";
+import "./App.css";
+
+function App() {
+  return (
+    <SupportProvider>
+      <YourApp />
+    </SupportProvider>
+  );
+}
+
+export default App;
+      ```
+
+      ```tsx pages/_app.tsx (Next.js Pages Router)
+      import { SupportProvider } from "@cossistant/next";
+import type { AppProps } from "next/app";
+import "../styles/globals.css";
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <SupportProvider>
+      <Component {...pageProps} />
+    </SupportProvider>
+  );
+}
+      ```
+    </CodeGroup>
+
+    <Note>
+      The `SupportProvider` must wrap all components that use Cossistant features. It automatically connects to the WebSocket server and loads visitor context.
+    </Note>
+  </Step>
+
+  <Step title="Add the Support widget">
+    Import the CSS and render the `<Support />` component anywhere inside the `SupportProvider`. It will appear as a floating button in the bottom corner:
+
+    <CodeGroup>
+      ```tsx page.tsx (Next.js)
+      import { Support } from "@cossistant/next";
+import "@cossistant/next/styles.css";
+
+export default function HomePage() {
+  return (
+    <main>
+      <h1>Welcome to my app</h1>
+      <p>Browse our features or get help anytime.</p>
+      
+      <Support />
+    </main>
+  );
+}
+      ```
+
+      ```tsx App.tsx (React)
+      import { Support } from "@cossistant/react";
+import "@cossistant/react/styles.css";
+
+export function App() {
+  return (
+    <div>
+      <h1>Welcome to my app</h1>
+      <p>Browse our features or get help anytime.</p>
+      
+      <Support />
+    </div>
+  );
+}
+      ```
+    </CodeGroup>
+
+    <Tip>
+      **CSS Options:** The SDK provides two CSS imports:
+      - `@cossistant/react/styles.css` - Pre-compiled CSS (works everywhere)
+      - `@cossistant/react/support.css` - Tailwind v4 source file (for full theme customization)
+    </Tip>
+  </Step>
+
+  <Step title="Test your integration">
+    Start your development server and click the support button. You should see the chat widget open with a welcome message.
+
+    ```bash Terminal
+    npm run dev
+    ```
+
+    <Note>
+      If you see a configuration error in the widget, verify that:
+      1. Your API key is correctly set in `.env`
+      2. The environment variable name matches your framework (see Step 2)
+      3. You've restarted your dev server after adding the `.env` file
+    </Note>
+  </Step>
+</Steps>
+
+## Next Steps
+
+You now have a working support widget! Here are some ways to enhance it:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Identify Users" icon="user" href="/concepts/visitor-identification">
+    Connect logged-in users to their support conversations with automatic identification
+  </Card>
+  
+  <Card title="React SDK" icon="react" href="/sdk/react/support-widget">
+    Set custom welcome messages and quick reply options per page
+  </Card>
+  
+  <Card title="Next.js Setup" icon="palette" href="/sdk/nextjs/setup">
+    Complete Next.js integration with styling and configuration
+  </Card>
+  
+  <Card title="Advanced Hooks" icon="code" href="/sdk/react/hooks">
+    Build custom UI with headless hooks and primitives
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Common Patterns
+
+### Page-Specific Quick Options
+
+Customize the quick reply buttons based on the current page:
+
+```tsx pricing/page.tsx
+import { SupportConfig } from "@cossistant/next";
+
+export default function PricingPage() {
+  return (
+    <main>
+      <SupportConfig
+        quickOptions={[
+          "How does billing work?",
+          "What's included in Pro?",
+          "Can I cancel anytime?",
+        ]}
+      />
+      
+      <h1>Pricing</h1>
+      {/* Your pricing content */}
+    </main>
+  );
+}
+```
+
+### Identify Logged-In Users
+
+Automatically connect support conversations to user accounts:
+
+```tsx dashboard/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await getSession();
+
+  return (
+    <div>
+      {session?.user && (
+        <IdentifySupportVisitor
+          externalId={session.user.id}
+          email={session.user.email}
+          name={session.user.name}
+          image={session.user.image}
+          metadata={{
+            plan: session.user.plan,
+            signupDate: session.user.createdAt,
+          }}
+        />
+      )}
+      {children}
+    </div>
+  );
+}
+```
+
+### Custom Welcome Messages
+
+Show different welcome messages for authenticated users:
+
+```tsx dashboard/page.tsx
+import { SupportConfig, SenderType } from "@cossistant/next";
+
+export default function DashboardPage() {
+  return (
+    <main>
+      <SupportConfig
+        defaultMessages={[
+          {
+            content: "Welcome to your dashboard! Need help with anything?",
+            senderType: SenderType.TeamMember,
+          },
+        ]}
+      />
+      
+      <h1>Dashboard</h1>
+      {/* Your dashboard content */}
+    </main>
+  );
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Widget not appearing">
+    - Verify `<SupportProvider>` wraps your entire app
+    - Check that you imported the CSS file (`@cossistant/react/styles.css`)
+    - Ensure your API key is set in the correct environment variable
+    - Restart your development server after adding environment variables
+  </Accordion>
+
+  <Accordion title="Configuration error in widget">
+    The widget will display an error message if:
+    - Your API key is missing or invalid
+    - You're using the wrong environment variable name for your framework
+    - Your API key doesn't have the correct permissions
+    
+    Check the browser console for detailed error messages.
+  </Accordion>
+
+  <Accordion title="TypeScript errors">
+    If you see TypeScript errors:
+    - Ensure you have `@types/react` and `@types/react-dom` installed
+    - Verify your React version is 18 or higher
+    - For Next.js, ensure you're on version 13.5.2 or higher
+  </Accordion>
+
+  <Accordion title="Styles not loading">
+    If styles appear broken:
+    - Verify you imported the CSS file before rendering `<Support />`
+    - Check for CSS conflicts with your existing styles
+    - Try importing `@cossistant/react/styles.css` instead of `support.css`
+  </Accordion>
+</AccordionGroup>
+
+## Need Help?
+
+If you're stuck or have questions:
+
+- Check the [API Reference](/sdk/react/primitives) for detailed component documentation
+- Join our [Discord community](https://discord.gg/vQkPjgvzcc) for live support
+- Open an issue on [GitHub](https://github.com/cossistant/cossistant/issues)
+- Browse [example implementations](https://github.com/cossistant/cossistant/tree/main/examples) in the repository

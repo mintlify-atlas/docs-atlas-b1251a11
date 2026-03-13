@@ -1,0 +1,606 @@
+---
+title: 'Visitors API'
+description: 'Track and manage website visitors'
+---
+
+# Visitors API
+
+Visitors represent anonymous browser sessions on your website. The API tracks device information, location data, and browsing behavior. Visitors can later be identified as contacts.
+
+## Base Endpoint
+
+```
+PATCH  /v1/visitors/{id}
+GET    /v1/visitors/{id}
+PATCH  /v1/visitors/{id}/metadata
+```
+
+## Update Visitor
+
+`PATCH /v1/visitors/{id}`
+
+Update an existing visitor's browser, device, and location information.
+
+### Authentication
+
+<Snippet file="auth-public-key.mdx" />
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The visitor ID to update (26-character ULID)
+</ParamField>
+
+### Request Body
+
+<ParamField body="browser" type="string">
+  Browser name (e.g., "Chrome", "Firefox", "Safari")
+</ParamField>
+
+<ParamField body="browserVersion" type="string">
+  Browser version (e.g., "119.0.0.0")
+</ParamField>
+
+<ParamField body="os" type="string">
+  Operating system (e.g., "Windows", "macOS", "Linux")
+</ParamField>
+
+<ParamField body="osVersion" type="string">
+  OS version (e.g., "10.0", "14.1")
+</ParamField>
+
+<ParamField body="device" type="string">
+  Device model or type
+</ParamField>
+
+<ParamField body="deviceType" type="string">
+  Device category: `desktop`, `mobile`, `tablet`
+</ParamField>
+
+<ParamField body="ip" type="string">
+  IP address (automatically detected from headers if not provided)
+</ParamField>
+
+<ParamField body="city" type="string">
+  City name
+</ParamField>
+
+<ParamField body="region" type="string">
+  State or region
+</ParamField>
+
+<ParamField body="country" type="string">
+  Country name
+</ParamField>
+
+<ParamField body="countryCode" type="string">
+  ISO 3166-1 alpha-2 country code (e.g., "US", "GB")
+</ParamField>
+
+<ParamField body="latitude" type="number">
+  Geographic latitude
+</ParamField>
+
+<ParamField body="longitude" type="number">
+  Geographic longitude
+</ParamField>
+
+<ParamField body="language" type="string">
+  Preferred language (e.g., "en-US", "fr-FR")
+</ParamField>
+
+<ParamField body="timezone" type="string">
+  IANA timezone (e.g., "America/New_York")
+</ParamField>
+
+<ParamField body="screenResolution" type="string">
+  Screen resolution (e.g., "1920x1080")
+</ParamField>
+
+<ParamField body="viewport" type="string">
+  Browser viewport size (e.g., "1440x900")
+</ParamField>
+
+<ParamField body="attribution" type="object">
+  Marketing attribution data (first-touch only)
+  
+  <Expandable title="Attribution Properties">
+    <ParamField body="source" type="string">
+      Traffic source (e.g., "google", "direct")
+    </ParamField>
+    
+    <ParamField body="medium" type="string">
+      Marketing medium (e.g., "organic", "cpc")
+    </ParamField>
+    
+    <ParamField body="campaign" type="string">
+      Campaign name
+    </ParamField>
+    
+    <ParamField body="term" type="string">
+      Search term or keyword
+    </ParamField>
+    
+    <ParamField body="content" type="string">
+      Ad content or variant
+    </ParamField>
+    
+    <ParamField body="referrer" type="string">
+      Full referrer URL
+    </ParamField>
+    
+    <ParamField body="landingPage" type="string">
+      First page URL visited
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="currentPage" type="object">
+  Current page information
+  
+  <Expandable title="Current Page Properties">
+    <ParamField body="url" type="string">
+      Full page URL
+    </ParamField>
+    
+    <ParamField body="title" type="string">
+      Page title
+    </ParamField>
+    
+    <ParamField body="path" type="string">
+      URL path
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Visitor ID
+</ResponseField>
+
+<ResponseField name="browser" type="string">
+  Browser name
+</ResponseField>
+
+<ResponseField name="browserVersion" type="string">
+  Browser version
+</ResponseField>
+
+<ResponseField name="os" type="string">
+  Operating system
+</ResponseField>
+
+<ResponseField name="osVersion" type="string">
+  OS version
+</ResponseField>
+
+<ResponseField name="device" type="string">
+  Device model
+</ResponseField>
+
+<ResponseField name="deviceType" type="string">
+  Device type
+</ResponseField>
+
+<ResponseField name="ip" type="string">
+  IP address
+</ResponseField>
+
+<ResponseField name="city" type="string">
+  City
+</ResponseField>
+
+<ResponseField name="region" type="string">
+  Region/state
+</ResponseField>
+
+<ResponseField name="country" type="string">
+  Country name
+</ResponseField>
+
+<ResponseField name="countryCode" type="string">
+  Country code
+</ResponseField>
+
+<ResponseField name="latitude" type="number">
+  Latitude
+</ResponseField>
+
+<ResponseField name="longitude" type="number">
+  Longitude
+</ResponseField>
+
+<ResponseField name="language" type="string">
+  Language preference
+</ResponseField>
+
+<ResponseField name="timezone" type="string">
+  Timezone
+</ResponseField>
+
+<ResponseField name="screenResolution" type="string">
+  Screen resolution
+</ResponseField>
+
+<ResponseField name="viewport" type="string">
+  Viewport size
+</ResponseField>
+
+<ResponseField name="attribution" type="object">
+  Attribution data (first-touch only)
+</ResponseField>
+
+<ResponseField name="currentPage" type="object">
+  Current page information
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+<ResponseField name="lastSeenAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+<ResponseField name="websiteId" type="string">
+  Website ID
+</ResponseField>
+
+<ResponseField name="organizationId" type="string">
+  Organization ID
+</ResponseField>
+
+<ResponseField name="isBlocked" type="boolean">
+  Whether this visitor is blocked
+</ResponseField>
+
+<ResponseField name="contact" type="object">
+  Associated contact information (if identified)
+</ResponseField>
+
+### Example
+
+```bash
+curl -X PATCH https://api.cossistant.com/v1/visitors/01JG000000000000000000000 \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "browser": "Chrome",
+    "browserVersion": "119.0.0.0",
+    "os": "macOS",
+    "osVersion": "14.1",
+    "deviceType": "desktop",
+    "language": "en-US",
+    "timezone": "America/New_York",
+    "currentPage": {
+      "url": "https://example.com/products",
+      "title": "Products | Example",
+      "path": "/products"
+    },
+    "attribution": {
+      "source": "google",
+      "medium": "organic",
+      "landingPage": "https://example.com/",
+      "referrer": "https://www.google.com/"
+    }
+  }'
+```
+
+<ResponseExample>
+```json
+{
+  "id": "01JG000000000000000000000",
+  "browser": "Chrome",
+  "browserVersion": "119.0.0.0",
+  "os": "macOS",
+  "osVersion": "14.1",
+  "device": null,
+  "deviceType": "desktop",
+  "ip": "203.0.113.42",
+  "city": "New York",
+  "region": "New York",
+  "country": "United States",
+  "countryCode": "US",
+  "latitude": 40.7128,
+  "longitude": -74.0060,
+  "language": "en-US",
+  "timezone": "America/New_York",
+  "screenResolution": null,
+  "viewport": null,
+  "attribution": {
+    "source": "google",
+    "medium": "organic",
+    "landingPage": "https://example.com/",
+    "referrer": "https://www.google.com/"
+  },
+  "currentPage": {
+    "url": "https://example.com/products",
+    "title": "Products | Example",
+    "path": "/products"
+  },
+  "createdAt": "2024-03-13T09:00:00.000Z",
+  "updatedAt": "2024-03-13T10:00:00.000Z",
+  "lastSeenAt": "2024-03-13T10:00:00.000Z",
+  "websiteId": "01JG000000000000000000001",
+  "organizationId": "01JG000000000000000000002",
+  "isBlocked": false,
+  "blockedAt": null,
+  "blockedByUserId": null,
+  "contact": null
+}
+```
+</ResponseExample>
+
+---
+
+## Get Visitor
+
+`GET /v1/visitors/{id}`
+
+Retrieve visitor information by ID.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The visitor ID
+</ParamField>
+
+### Response
+
+Same as Update Visitor response.
+
+### Example
+
+```bash
+curl https://api.cossistant.com/v1/visitors/01JG000000000000000000000 \
+  -H "X-Public-Key: pk_test_abc123..."
+```
+
+---
+
+## Update Contact Metadata
+
+`PATCH /v1/visitors/{id}/metadata`
+
+Update metadata for the contact associated with this visitor. The visitor must be identified first using `/contacts/identify`.
+
+### Authentication
+
+<Snippet file="auth-public-key.mdx" />
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The visitor ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="metadata" type="object" required>
+  Custom metadata to merge into the contact's metadata object. Supports nested objects.
+  
+  ```json
+  {
+    "metadata": {
+      "plan": "enterprise",
+      "company": "Acme Corp",
+      "customFields": {
+        "industry": "Technology",
+        "employees": 50
+      }
+    }
+  }
+  ```
+</ParamField>
+
+### Response
+
+Returns the updated visitor object (same as Get Visitor).
+
+### Example
+
+```bash
+curl -X PATCH https://api.cossistant.com/v1/visitors/01JG000000000000000000000/metadata \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "metadata": {
+      "plan": "pro",
+      "subscription_id": "sub_123",
+      "lifetime_value": 5000
+    }
+  }'
+```
+
+## Automatic Data Enrichment
+
+The API automatically enriches visitor data from request headers:
+
+### IP Geolocation
+
+When you don't provide location data, the API extracts it from:
+- `CF-IPCity`, `X-Vercel-IP-City` → city
+- `CF-IPCountry`, `X-Vercel-IP-Country` → country code
+- `CF-IPRegion`, `X-Vercel-IP-Country-Region` → region
+- `CF-IPLatitude`, `X-Vercel-IP-Latitude` → latitude
+- `CF-IPLongitude`, `X-Vercel-IP-Longitude` → longitude
+- `X-Vercel-IP-Timezone` → timezone
+
+### IP Address Detection
+
+Detected from headers in priority order:
+1. `CF-Connecting-IP` (Cloudflare)
+2. `X-Real-IP`
+3. `X-Forwarded-For` (first IP)
+4. `X-Client-IP`
+5. Other standard headers
+
+### Language Detection
+
+Extracted from `Accept-Language` header if not provided.
+
+### Country Name Resolution
+
+If you provide a `countryCode`, the API automatically resolves the country name using the visitor's preferred language.
+
+## Attribution Tracking
+
+### First-Touch Attribution
+
+Attribution data is stored on **first visit only**. Subsequent updates to the visitor will not overwrite existing attribution data.
+
+This ensures you always know how a visitor originally found your site.
+
+### Attribution Fields
+
+<AccordionGroup>
+  <Accordion title="UTM Parameters">
+    - `source`: `utm_source` query parameter
+    - `medium`: `utm_medium` query parameter
+    - `campaign`: `utm_campaign` query parameter
+    - `term`: `utm_term` query parameter
+    - `content`: `utm_content` query parameter
+  </Accordion>
+  
+  <Accordion title="Referrer & Landing Page">
+    - `referrer`: Full URL of the referring page
+    - `landingPage`: First page visited on your site
+  </Accordion>
+</AccordionGroup>
+
+### Example Attribution Flow
+
+```javascript
+// Visitor arrives from Google Ads
+// URL: https://example.com/?utm_source=google&utm_medium=cpc&utm_campaign=spring_sale
+
+await client.updateVisitor('01JG000000000000000000000', {
+  attribution: {
+    source: 'google',
+    medium: 'cpc',
+    campaign: 'spring_sale',
+    referrer: 'https://www.google.com/ads',
+    landingPage: 'https://example.com/'
+  }
+});
+
+// Later, visitor navigates to another page
+// Attribution is preserved, not overwritten
+await client.updateVisitor('01JG000000000000000000000', {
+  currentPage: {
+    url: 'https://example.com/products',
+    title: 'Products'
+  }
+  // Attribution remains unchanged
+});
+```
+
+## Page View Tracking
+
+When you update `currentPage`, a page view event is automatically tracked in analytics.
+
+```javascript
+await client.updateVisitor(visitorId, {
+  currentPage: {
+    url: window.location.href,
+    title: document.title,
+    path: window.location.pathname
+  }
+});
+
+// Automatically creates a page_view event
+```
+
+## Error Responses
+
+<ResponseField name="400 Bad Request" type="object">
+  Invalid visitor ID or country code
+  ```json
+  {
+    "error": "BAD_REQUEST",
+    "message": "countryCode must be a valid ISO 3166-1 alpha-2 code"
+  }
+  ```
+  
+  or
+  
+  ```json
+  {
+    "error": "BAD_REQUEST",
+    "message": "Visitor is not identified. Please use the /contacts/identify endpoint first to create a contact for this visitor."
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404 Not Found" type="object">
+  Visitor not found
+  ```json
+  {
+    "error": "NOT_FOUND",
+    "message": "Visitor not found"
+  }
+  ```
+</ResponseField>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Update on page navigation">
+    Call this endpoint whenever the visitor navigates to track their journey:
+    
+    ```javascript
+    // On initial load and every route change
+    router.afterEach((to) => {
+      updateVisitor(visitorId, {
+        currentPage: {
+          url: window.location.href,
+          title: document.title,
+          path: to.path
+        }
+      });
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Capture attribution early">
+    Extract and store UTM parameters on the first page load:
+    
+    ```javascript
+    const params = new URLSearchParams(window.location.search);
+    const attribution = {
+      source: params.get('utm_source'),
+      medium: params.get('utm_medium'),
+      campaign: params.get('utm_campaign'),
+      term: params.get('utm_term'),
+      content: params.get('utm_content'),
+      referrer: document.referrer,
+      landingPage: window.location.href
+    };
+    ```
+  </Accordion>
+  
+  <Accordion title="Batch location data">
+    Include as much location/device data as possible in a single request to reduce API calls.
+  </Accordion>
+  
+  <Accordion title="Use metadata for custom properties">
+    Store application-specific data in contact metadata rather than trying to add custom fields to the visitor object.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Identify Visitor" icon="id-card" href="/api/rest/visitors">
+    Link visitors to identified contacts
+  </Card>
+  
+  <Card title="React Hook" icon="react" href="/api/hooks/use-visitor">
+    Use the useVisitor hook in React
+  </Card>
+</CardGroup>
