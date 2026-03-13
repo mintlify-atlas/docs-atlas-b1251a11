@@ -1,0 +1,161 @@
+{
+  "projectType": "saas",
+  "projectName": "Cossistant",
+  "projectDescription": "Open-source customer support platform with fully customizable AI support agents for developers and startups.",
+  "theme": "palm",
+  "primaryColor": "#649cfc",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/ai-agents",
+              "concepts/real-time-messaging",
+              "concepts/visitor-identification"
+            ]
+          },
+          {
+            "group": "React SDK",
+            "pages": [
+              "sdk/react/overview",
+              "sdk/react/support-widget",
+              "sdk/react/feedback-widget",
+              "sdk/react/hooks",
+              "sdk/react/primitives"
+            ]
+          },
+          {
+            "group": "Next.js SDK",
+            "pages": [
+              "sdk/nextjs/overview",
+              "sdk/nextjs/setup",
+              "sdk/nextjs/server-components"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "dashboard/overview",
+              "dashboard/conversations",
+              "dashboard/knowledge-base",
+              "dashboard/team-management",
+              "dashboard/ai-agent-configuration"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/overview",
+              "integrations/webhooks",
+              "integrations/email"
+            ]
+          },
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "self-hosting/overview",
+              "self-hosting/docker",
+              "self-hosting/environment-variables",
+              "self-hosting/database-setup"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/overview",
+              "contributing/development-setup",
+              "contributing/monorepo-structure",
+              "contributing/code-style"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "api/overview",
+              "api/authentication",
+              "api/rate-limits"
+            ]
+          },
+          {
+            "group": "REST API",
+            "pages": [
+              "api/rest/conversations",
+              "api/rest/messages",
+              "api/rest/visitors",
+              "api/rest/feedback",
+              "api/rest/knowledge"
+            ]
+          },
+          {
+            "group": "WebSocket API",
+            "pages": [
+              "api/websocket/overview",
+              "api/websocket/events",
+              "api/websocket/connection"
+            ]
+          },
+          {
+            "group": "React Hooks",
+            "pages": [
+              "api/hooks/use-conversation",
+              "api/hooks/use-realtime-support",
+              "api/hooks/use-send-message",
+              "api/hooks/use-visitor"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "AI-powered support agents with customizable behavior",
+    "Headless React SDK with prebuilt widgets",
+    "Real-time messaging via WebSockets",
+    "Knowledge base integration for AI training",
+    "Team collaboration and conversation management",
+    "Visitor identification and metadata tracking",
+    "Feedback widget for user satisfaction",
+    "Self-hostable with Docker support",
+    "Next.js-ready with server components support",
+    "Email integration and threading"
+  ],
+  "publicApiSurface": [
+    "@cossistant/react - Support widget",
+    "@cossistant/react - Feedback widget",
+    "@cossistant/react - useConversation",
+    "@cossistant/react - useRealtimeSupport",
+    "@cossistant/react - useSendMessage",
+    "@cossistant/react - useVisitor",
+    "@cossistant/react - Primitives (headless components)",
+    "@cossistant/next - Next.js bindings",
+    "@cossistant/core - API client",
+    "REST API - /v1/conversations",
+    "REST API - /v1/messages",
+    "REST API - /v1/visitors",
+    "REST API - /v1/feedback",
+    "REST API - /v1/knowledge",
+    "WebSocket API - /ws",
+    "tRPC API - AI agent configuration",
+    "tRPC API - Team management",
+    "tRPC API - Knowledge base"
+  ]
+}
